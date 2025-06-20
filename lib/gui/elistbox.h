@@ -487,6 +487,7 @@ public:
 		return 0;
 	}
 	int getMaxItemTextWidth() { return m_content->getMaxItemTextWidth(); }
+	void onScrollTimer();  // animation tick handler
 
 #ifndef SWIG
 	struct eListboxStyle *getLocalStyle(void);
@@ -508,6 +509,11 @@ protected:
 	void recalcSize();
 
 private:
+	eTimer *m_scroll_timer = nullptr;
+	int m_scroll_current_offset = 0;
+	int m_scroll_target_offset = 0;
+	int m_scroll_direction = 0;
+	bool m_animating_scroll = false;
 	ePoint getItemPostion(int index);
 	int moveSelectionLineMode(bool doUp, bool doDown, int dir, int oldSel, int oldTopLeft, int oldRow, int maxItems, bool indexChanged, int pageOffset, int topLeft);
 	void recalcSizeAlignment(bool scrollbarVisible);
