@@ -57,6 +57,9 @@ eListbox::eListbox(eWidget *parent) : eWidget(parent), m_prev_scrollbar_page(-1)
 
 	if (m_scrollbar_mode != showNever)
 		setScrollbarMode(m_scrollbar_mode);
+
+	m_scroll_timer = new eTimer(this);
+	CONNECT(m_scroll_timer->timeout, eListbox::onScrollTimer);
 }
 
 eListbox::~eListbox()
@@ -64,7 +67,11 @@ eListbox::~eListbox()
 	if (m_scrollbar)
 		delete m_scrollbar;
 
+	if (m_scroll_timer)
+		delete m_scroll_timer;
+	
 	allowNativeKeys(false);
+	
 }
 
 void eListbox::setScrollbarMode(uint8_t mode)
@@ -1272,15 +1279,57 @@ ePoint eListbox::getItemPostion(int index)
 {
 	int posx = 0, posy = 0;
 	ePoint indexSpacing = (index > 0) ? m_spacing : ePoint(0, 0);
+
 	if (m_orientation == orGrid || m_orientation == orHorizontal)
 	{
-		posx = (m_orientation == orGrid) ? (m_itemwidth + indexSpacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns) : (m_itemwidth + indexSpacing.x()) * (index - m_left);
-		posy = (m_orientation == orGrid) ? (m_itemheight + indexSpacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns) : 0;
+		if (m_orientation == orGrid)
+		{
+			posx = (m_itemwidth + indexSpacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns);
+			posy = (m_itemheight + indexSpacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns);
+		}
+		else // orHorizontal
+		{
+			posx = (m_itemwidth + indexSpacing.x()) * (index - m_left) - m_scroll_current_offset;
+			posy = 0;
+		}
 	}
-	else
+	else // orVertical
+	{
 		posy = (m_itemheight + indexSpacing.y()) * (index - m_top);
+	}
 
 	return ePoint(posx + xOffset, posy + yOffset);
+}
+
+void eListbox::onScrollTimer()
+{
+	const int total = m_itemwidth + m_spacing.x();
+	const float ease = 0.25f;  // ease-out factor
+
+	if (!m_animating_scroll) {
+		m_scroll_timer->stop();
+		return;
+	}
+
+	int remaining = m_scroll_target_offset - m_scroll_current_offset;
+	int step = static_cast<int>(remaining * ease);
+
+	if (std::abs(step) < 1)
+		step = (remaining > 0) ? 1 : -1;
+
+	m_scroll_current_offset += step;
+
+	invalidate();
+
+	if (std::abs(m_scroll_target_offset - m_scroll_current_offset) < 1) {
+		m_scroll_current_offset = 0;
+		m_scroll_target_offset = 0;
+		m_animating_scroll = false;
+		m_scroll_timer->stop();
+	}
+	else {
+		m_scroll_timer->start(16, true);  // ~60fps
+	}
 }
 
 void eListbox::moveSelection(int dir)
@@ -1331,294 +1380,310 @@ void eListbox::moveSelection(int dir)
 #ifdef USE_LIBVUGLES2
 	m_dir = dir;
 #endif
-	switch (dir)
+
+	// ✅ Injected smooth scroll + wraparound for Horizontal listbox
+	if (m_orientation == orHorizontal && (dir == moveRight || dir == moveLeft))
 	{
-	case moveFirst:
-		if (isGrid)
-		{
-			int newRow = oldRow;
-			do
-			{
-				m_content->cursorMove(-1);
-				newSel = m_content->cursorGet();
-				newRow = newSel / m_max_columns;
-				if (newRow != oldRow || !m_content->currentCursorSelectable())
-				{
-					m_content->cursorSet(prevSel);
-					break;
-				}
-				if (newSel == prevSel)
-				{
-					break;
-				}
-				prevSel = newSel;
+		int delta = (dir == moveRight) ? 1 : -1;
+		m_content->cursorMove(delta);
+		newSel = m_content->cursorGet();
 
-			} while (true);
-		}
-		break;
-	case moveLast:
-		if (isGrid)
+		if (newSel == oldSel)
 		{
-			int newRow = oldRow;
-			do
+			if (m_enabled_wrap_around)
 			{
-				m_content->cursorMove(1);
-				newSel = m_content->cursorGet();
-				newRow = newSel / m_max_columns;
-				if (newRow != oldRow || !m_content->currentCursorSelectable())
-				{
-					m_content->cursorSet(prevSel);
-					break;
-				}
-				if (newSel == prevSel)
-				{
-					break;
-				}
-				prevSel = newSel;
-			} while (true);
-		}
-		break;
-	case moveBottom:
-		m_content->cursorEnd();
-		[[fallthrough]];
-	case moveUp:
-		if (isGrid && dir != moveBottom)
-		{
-			int newColumn = -1;
-			if(m_max_rows > 1)
-			{
-
-				int wrap = 0;
-				int newRow = oldRow;
-				int current = oldSel;
-				do
-				{
-					m_content->cursorMove(-m_max_columns);
-					newSel = m_content->cursorGet();
-					newRow = (m_max_columns != 0) ? newSel / m_max_columns : 0;
-					if (current < m_max_columns)
-					{
-						if (m_enabled_wrap_around)
-						{
-							m_content->cursorEnd();
-							do
-							{
-								m_content->cursorMove(-1);
-								newSel = m_content->cursorGet();
-								newColumn = newSel % m_max_columns;
-							} while (oldColumn != newColumn);
-						}
-						else
-						{
-							m_content->cursorHome();
-							m_content->cursorMove(oldSel);
-							break;
-						}
-						if (wrap)
-						{
-							m_content->cursorHome();
-							m_content->cursorMove(oldSel);
-							break;
-						}
-						wrap ++;
-					}
-					current = newSel;
-				} while (newSel != oldSel && !m_content->currentCursorSelectable());
-
-			}
-			break;
-		}
-		[[fallthrough]];
-	case moveLeft:
-		/* upcoming new grid feature for wrap in a line
-		if (isGrid && oldColumn == 0)
-		{
-			m_content->cursorMove(m_max_columns);
-		}
-		*/
-		do
-		{
-			m_content->cursorMove(-1);
-			newSel = m_content->cursorGet();
-			if (newSel == prevSel)
-			{ // cursorMove reached top and left cursor position the same. Must wrap around ?
-				if (m_enabled_wrap_around)
+				if (dir == moveRight)
+					m_content->cursorHome();
+				else
 				{
 					m_content->cursorEnd();
 					m_content->cursorMove(-1);
-					newSel = m_content->cursorGet();
 				}
-				else
-				{
-					m_content->cursorSet(oldSel);
-					break;
-				}
+				newSel = m_content->cursorGet();
+				if (newSel == oldSel)
+					return;
 			}
-			prevSel = newSel;
-		} while (newSel != oldSel && !m_content->currentCursorSelectable());
-		break;
-	case moveTop:
-		m_content->cursorHome();
-		[[fallthrough]];
-	case justCheck:
-		if (m_content->cursorValid() && m_content->currentCursorSelectable())
-			break;
-		[[fallthrough]];
-	case moveDown:
-		if (isGrid)
-		{
-			if(dir == moveTop)
+			else
 			{
+				return;
+			}
+		}
+
+		m_selected = newSel;
+
+		m_scroll_direction = dir;
+		m_scroll_current_offset = 0;
+		m_scroll_target_offset = m_itemwidth + m_spacing.x();
+		m_animating_scroll = true;
+		m_scroll_timer->start(16, true);
+	}
+	else
+	{
+		switch (dir)
+		{
+		case moveFirst:
+			if (isGrid)
+			{
+				int newRow = oldRow;
+				do
+				{
+					m_content->cursorMove(-1);
+					newSel = m_content->cursorGet();
+					newRow = newSel / m_max_columns;
+					if (newRow != oldRow || !m_content->currentCursorSelectable())
+					{
+						m_content->cursorSet(prevSel);
+						break;
+					}
+					if (newSel == prevSel)
+					{
+						break;
+					}
+					prevSel = newSel;
+				} while (true);
+			}
+			break;
+		case moveLast:
+			if (isGrid)
+			{
+				int newRow = oldRow;
 				do
 				{
 					m_content->cursorMove(1);
 					newSel = m_content->cursorGet();
+					newRow = newSel / m_max_columns;
+					if (newRow != oldRow || !m_content->currentCursorSelectable())
+					{
+						m_content->cursorSet(prevSel);
+						break;
+					}
+					if (newSel == prevSel)
+					{
+						break;
+					}
+					prevSel = newSel;
+				} while (true);
+			}
+			break;
+		case moveBottom:
+			m_content->cursorEnd();
+			[[fallthrough]];
+		case moveUp:
+			if (isGrid && dir != moveBottom)
+			{
+				int newColumn = -1;
+				if(m_max_rows > 1)
+				{
+					int wrap = 0;
+					int newRow = oldRow;
+					int current = oldSel;
+					do
+					{
+						m_content->cursorMove(-m_max_columns);
+						newSel = m_content->cursorGet();
+						newRow = (m_max_columns != 0) ? newSel / m_max_columns : 0;
+						if (current < m_max_columns)
+						{
+							if (m_enabled_wrap_around)
+							{
+								m_content->cursorEnd();
+								do
+								{
+									m_content->cursorMove(-1);
+									newSel = m_content->cursorGet();
+									newColumn = newSel % m_max_columns;
+								} while (oldColumn != newColumn);
+							}
+							else
+							{
+								m_content->cursorHome();
+								m_content->cursorMove(oldSel);
+								break;
+							}
+							if (wrap)
+							{
+								m_content->cursorHome();
+								m_content->cursorMove(oldSel);
+								break;
+							}
+							wrap++;
+						}
+						current = newSel;
+					} while (newSel != oldSel && !m_content->currentCursorSelectable());
+				}
+				break;
+			}
+			[[fallthrough]];
+		case moveLeft:
+			do
+			{
+				m_content->cursorMove(-1);
+				newSel = m_content->cursorGet();
+				if (newSel == prevSel)
+				{
+					if (m_enabled_wrap_around)
+					{
+						m_content->cursorEnd();
+						m_content->cursorMove(-1);
+						newSel = m_content->cursorGet();
+					}
+					else
+					{
+						m_content->cursorSet(oldSel);
+						break;
+					}
+				}
+				prevSel = newSel;
+			} while (newSel != oldSel && !m_content->currentCursorSelectable());
+			break;
+		case moveTop:
+			m_content->cursorHome();
+			[[fallthrough]];
+		case justCheck:
+			if (m_content->cursorValid() && m_content->currentCursorSelectable())
+				break;
+			[[fallthrough]];
+		case moveDown:
+			if (isGrid)
+			{
+				if (dir == moveTop)
+				{
+					do
+					{
+						m_content->cursorMove(1);
+						newSel = m_content->cursorGet();
+					} while (newSel != oldSel && !m_content->currentCursorSelectable());
+					break;
+				}
+
+				int current = oldSel;
+				do
+				{
+					bool wrap = (current + m_max_columns) >= m_content->size();
+					if (wrap && m_enabled_wrap_around)
+					{
+						m_content->cursorHome();
+						m_content->cursorMove(oldColumn);
+						if (m_content->currentCursorSelectable())
+							break;
+					}
+					else
+						m_content->cursorMove(indexChanged ? 1 : m_max_columns);
+
+					if (!m_content->cursorValid())
+					{
+						if (m_enabled_wrap_around)
+							m_content->cursorHome();
+						else
+							m_content->cursorSet(oldSel);
+					}
+					newSel = m_content->cursorGet();
+					current = newSel;
 				} while (newSel != oldSel && !m_content->currentCursorSelectable());
 				break;
 			}
-
-			int current = oldSel;
+			[[fallthrough]];
+		case moveRight:
 			do
 			{
-				bool wrap = (current + m_max_columns) >= m_content->size();
-				if (wrap && m_enabled_wrap_around)
-				{
-					m_content->cursorHome();
-					m_content->cursorMove(oldColumn);
-					if (m_content->currentCursorSelectable())
-						break;
-				}
-				else
-					m_content->cursorMove(indexChanged ? 1 : m_max_columns);
-
+				m_content->cursorMove(1);
 				if (!m_content->cursorValid())
-				{ // cursorMove reached end and left cursor position past the list. Must wrap around ?
+				{
 					if (m_enabled_wrap_around)
 						m_content->cursorHome();
 					else
 						m_content->cursorSet(oldSel);
 				}
 				newSel = m_content->cursorGet();
-				current = newSel;
 			} while (newSel != oldSel && !m_content->currentCursorSelectable());
 			break;
-		}
-		[[fallthrough]];
-	case moveRight:
-		/* upcoming new grid feature for wrap in a line
-		if (isGrid && oldColumn >= m_max_columns)
+		case movePageUp:
 		{
-			m_content->cursorMove(-m_max_columns);
-			newSel = m_content->cursorGet();
-			eDebug("[eListbox] moveRight newSel=%d oldColumn=%d m_max_columns=%d" , newSel, oldColumn, m_max_columns);
-		}
-		*/
-		do
-		{
-			m_content->cursorMove(1);
-			if (!m_content->cursorValid())
-			{ // cursorMove reached end and left cursor position past the list. Must wrap around ?
-				if (m_enabled_wrap_around)
-					m_content->cursorHome();
-				else
-					m_content->cursorSet(oldSel);
-			}
-			newSel = m_content->cursorGet();
-		} while (newSel != oldSel && !m_content->currentCursorSelectable());
-		break;
-	case movePageUp:
-	{
-		int pageind;
-		do
-		{
-			m_content->cursorMove(-pageOffset);
-			newSel = m_content->cursorGet();
-			pageind = newSel % maxItems; // rememer were we land in thsi page (could be different on topmost page)
-			prevSel = newSel - pageind;	 // get top of page index
-			// find first selectable entry in new page. First check bottom part, than upper part
-			while (newSel != prevSel + maxItems && m_content->cursorValid() && !m_content->currentCursorSelectable())
+			int pageind;
+			do
 			{
-				m_content->cursorMove(1);
+				m_content->cursorMove(-pageOffset);
 				newSel = m_content->cursorGet();
-			}
-			if (!m_content->currentCursorSelectable()) // no selectable found in bottom part of page
-			{
+				pageind = newSel % maxItems;
+				prevSel = newSel - pageind;
+				while (newSel != prevSel + maxItems && m_content->cursorValid() && !m_content->currentCursorSelectable())
+				{
+					m_content->cursorMove(1);
+					newSel = m_content->cursorGet();
+				}
+				if (!m_content->currentCursorSelectable())
+				{
+					m_content->cursorSet(prevSel + pageind);
+					while (newSel != prevSel && !m_content->currentCursorSelectable())
+					{
+						m_content->cursorMove(-1);
+						newSel = m_content->cursorGet();
+					}
+				}
+				if (m_content->currentCursorSelectable())
+					break;
+				if (newSel == 0)
+				{
+					while (newSel != oldSel && !m_content->currentCursorSelectable())
+					{
+						m_content->cursorMove(1);
+						newSel = m_content->cursorGet();
+					}
+					break;
+				}
 				m_content->cursorSet(prevSel + pageind);
+			} while (newSel == prevSel);
+			break;
+		}
+		case movePageDown:
+		{
+			int pageind;
+			do
+			{
+				m_content->cursorMove(pageOffset);
+				if (!m_content->cursorValid())
+					m_content->cursorMove(-1);
+				newSel = m_content->cursorGet();
+				pageind = newSel % maxItems;
+				prevSel = newSel - pageind;
 				while (newSel != prevSel && !m_content->currentCursorSelectable())
 				{
 					m_content->cursorMove(-1);
 					newSel = m_content->cursorGet();
 				}
-			}
-			if (m_content->currentCursorSelectable())
-				break;
-			if (newSel == 0) // at top and nothing found . Go down till something selectable or old location
-			{
-				while (newSel != oldSel && !m_content->currentCursorSelectable())
+				if (!m_content->currentCursorSelectable())
 				{
-					m_content->cursorMove(1);
-					newSel = m_content->cursorGet();
+					m_content->cursorSet(prevSel + pageind);
+					do
+					{
+						m_content->cursorMove(1);
+						newSel = m_content->cursorGet();
+					} while (newSel != prevSel + maxItems && m_content->cursorValid() && !m_content->currentCursorSelectable());
 				}
-				break;
-			}
-			m_content->cursorSet(prevSel + pageind);
-		} while (newSel == prevSel);
-		break;
-	}
-	case movePageDown:
-	{
-		int pageind;
-		do
-		{
-			m_content->cursorMove(pageOffset);
-			if (!m_content->cursorValid())
-				m_content->cursorMove(-1);
-			newSel = m_content->cursorGet();
-			pageind = newSel % maxItems;
-			prevSel = newSel - pageind; // get top of page index
-			// find a selectable entry in the new page. first look up then down from current screenlocation on the page
-			while (newSel != prevSel && !m_content->currentCursorSelectable())
-			{
-				m_content->cursorMove(-1);
-				newSel = m_content->cursorGet();
-			}
-			if (!m_content->currentCursorSelectable()) // no selectable found in top part of page
-			{
+				if (!m_content->cursorValid())
+				{
+					do
+					{
+						m_content->cursorMove(-1);
+						newSel = m_content->cursorGet();
+					} while (newSel != oldSel && !m_content->currentCursorSelectable());
+					break;
+				}
+				if (newSel != prevSel + maxItems)
+					break;
 				m_content->cursorSet(prevSel + pageind);
-				do
-				{
-					m_content->cursorMove(1);
-					newSel = m_content->cursorGet();
-				} while (newSel != prevSel + maxItems && m_content->cursorValid() && !m_content->currentCursorSelectable());
-			}
-			if (!m_content->cursorValid())
-			{
-				// we reached the end of the list
-				// Back up till something selectable or we reach oldSel again
-				// E.g this should bring us back to the last selectable item on the original page
-				do
-				{
-					m_content->cursorMove(-1);
-					newSel = m_content->cursorGet();
-				} while (newSel != oldSel && !m_content->currentCursorSelectable());
-				break;
-			}
-			if (newSel != prevSel + maxItems)
-				break;
-			m_content->cursorSet(prevSel + pageind); // prepare for next page down
-		} while (newSel == prevSel + maxItems);
-		break;
-	}
+			} while (newSel == prevSel + maxItems);
+			break;
+		}
+		}
+		m_selected = m_content->cursorGet();
 	}
 
-	/* now, look wether the current selection is out of screen */
-	m_selected = m_content->cursorGet();
 	if (m_orientation == orHorizontal)
 		m_left = m_selected - (m_selected % maxItems);
 	else
 		m_top = (m_scrollbar_scroll == byLine) ? m_selected / maxItems : (m_selected / maxItems) * m_max_rows;
 
-	/*  new scollmode by line if not on the first page .. only for vertical */
 	if (m_scrollbar_scroll == byLine && m_content->size() > maxItems)
 	{
 		if (m_orientation == orHorizontal)
@@ -1633,10 +1698,8 @@ void eListbox::moveSelection(int dir)
 			else
 				m_top = moveSelectionLineMode((dir == moveUp), (dir == moveDown), dir, oldSel, oldTop, oldRow, maxItems, indexChanged, pageOffset, m_top);
 		}
-
 	}
 
-	// if it is, then the old selection clip is irrelevant, clear it or we'll get artifacts
 	if (m_orientation == orHorizontal)
 	{
 		if (m_left != oldLeft && m_content)
@@ -1661,7 +1724,6 @@ void eListbox::moveSelection(int dir)
 		}
 		else if (m_selected != oldSel)
 		{
-			/* redraw the old and newly selected */
 			gRegion inv = eRect(getItemPostion(m_selected), eSize((m_style.m_selection_width), (m_style.m_selection_height)));
 			inv |= eRect(getItemPostion(oldSel), eSize((m_style.m_selection_width), (m_style.m_selection_height)));
 			invalidate(inv);
@@ -1681,6 +1743,7 @@ void eListbox::moveSelection(int dir)
 		}
 	}
 }
+
 
 int eListbox::moveSelectionLineMode(bool doUp, bool doDown, int dir, int oldSel, int oldTopLeft, int oldRow, int maxItems, bool indexChanged, int pageOffset, int topLeft)
 {
