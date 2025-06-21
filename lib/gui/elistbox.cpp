@@ -1331,6 +1331,9 @@ void eListbox::onScrollTimer()
 
 void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride)
 {
+	ePtr<eWindowStyle> style;
+	getStyle(style);
+
 	int savedTop = m_top;
 	if (topOverride != -1)
 		m_top = topOverride;
@@ -1340,16 +1343,23 @@ void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offs
 
 	m_content->cursorSet(startIndex);
 
-	for (int i = startIndex; i < endIndex; ++i) {
+	for (int i = startIndex; i < endIndex; ++i)
+	{
 		ePoint pos = getItemPostion(i);
-		pos.setY(pos.y() - offsetY);
-		m_content->paint(painter, *style, pos, i == m_selected);
+		pos.setY(pos.y() - offsetY); // Apply transition offset vertically
+
+		bool sel = (i == m_selected && m_selection_enabled);
+
+		m_content->paint(painter, *style, pos, sel);
+
 		m_content->cursorMove(+1);
 	}
 
+	// Restore the original top and cursor
 	m_top = savedTop;
 	m_content->cursorSet(m_selected);
 }
+
 
 void eListbox::moveSelection(int dir)
 {
