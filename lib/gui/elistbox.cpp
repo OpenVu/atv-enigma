@@ -1294,13 +1294,23 @@ void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offs
     if (topOverride != -1)
         m_top = topOverride;
 
-    int startIndex = m_top;
-    int endIndex = std::min((int)m_content->size(), m_top + m_max_rows);
-
-    if (m_content->size() > 0 && startIndex >= m_content->size()) {
-        startIndex = std::max(0, (int)m_content->size() - m_max_rows);
-        m_top = startIndex; // Adjust m_top to valid range
-        eDebug("[eListbox] drawPage: adjusted m_top=%d to prevent overflow", m_top);
+    int startIndex, endIndex;
+    if (m_orientation == orGrid) {
+        startIndex = m_top * m_max_columns;
+        endIndex = std::min((int)m_content->size(), startIndex + m_max_columns * m_max_rows);
+        if (m_content->size() > 0 && startIndex >= m_content->size()) {
+            startIndex = std::max(0, ((m_content->size() + m_max_columns - 1) / m_max_columns - m_max_rows) * m_max_columns);
+            m_top = startIndex / m_max_columns; // Adjust m_top for grid
+            eDebug("[eListbox] drawPage: adjusted m_top=%d for grid to prevent overflow", m_top);
+        }
+    } else {
+        startIndex = m_top;
+        endIndex = std::min((int)m_content->size(), m_top + m_max_rows);
+        if (m_content->size() > 0 && startIndex >= m_content->size()) {
+            startIndex = std::max(0, (int)m_content->size() - m_max_rows);
+            m_top = startIndex; // Adjust m_top for vertical
+            eDebug("[eListbox] drawPage: adjusted m_top=%d for vertical to prevent overflow", m_top);
+        }
     }
 
     m_content->cursorSet(startIndex);
@@ -1320,7 +1330,6 @@ void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offs
     m_top = savedTop;
     m_content->cursorSet(m_selected);
 }
-
 
 void eListbox::moveSelection(int dir)
 {
