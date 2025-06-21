@@ -1279,24 +1279,26 @@ void eListbox::setSelectionZoomSize(int width, int height, int zoomContentMode)
 ePoint eListbox::getItemPostion(int index)
 {
 	int posx = 0, posy = 0;
-	ePoint indexSpacing = (index > 0) ? m_spacing : ePoint(0, 0);
+	ePoint spacing = (index > 0) ? m_spacing : ePoint(0, 0);
 
-	if (m_orientation == orGrid || m_orientation == orHorizontal)
+	if (m_orientation == orGrid)
 	{
-		if (m_orientation == orGrid)
-		{
-			posx = (m_itemwidth + indexSpacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns);
-			posy = (m_itemheight + indexSpacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns);
-		}
-		else // orHorizontal
-		{
-			posx = (m_itemwidth + indexSpacing.x()) * (index - m_left) - m_scroll_current_offset;
-			posy = 0;
-		}
+		posx = (m_itemwidth + spacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns);
+		posy = (m_itemheight + spacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns);
+
+		// Apply animation offset
+		if (m_scroll_direction == moveLeft || m_scroll_direction == moveRight)
+			posx -= m_scroll_current_offset;
+		else if (m_scroll_direction == moveUp || m_scroll_direction == moveDown)
+			posy -= m_scroll_current_offset;
+	}
+	else if (m_orientation == orHorizontal)
+	{
+		posx = (m_itemwidth + spacing.x()) * (index - m_left) - m_scroll_current_offset;
 	}
 	else // orVertical
 	{
-		posy = (m_itemheight + indexSpacing.y()) * (index - m_top);
+		posy = (m_itemheight + spacing.y()) * (index - m_top);
 	}
 
 	return ePoint(posx + xOffset, posy + yOffset);
@@ -1470,48 +1472,36 @@ void eListbox::moveSelection(int dir)
 			m_content->cursorEnd();
 			[[fallthrough]];
 		case moveUp:
-			if (isGrid && dir != moveBottom)
+			if (isGrid)
 			{
-				int newColumn = -1;
-				if(m_max_rows > 1)
+				int current = oldSel;
+				m_content->cursorMove(-m_max_columns);
+				newSel = m_content->cursorGet();
+				if (newSel == oldSel)
 				{
-					int wrap = 0;
-					int newRow = oldRow;
-					int current = oldSel;
-					do
+					if (m_enabled_wrap_around)
 					{
-						m_content->cursorMove(-m_max_columns);
-						newSel = m_content->cursorGet();
-						newRow = (m_max_columns != 0) ? newSel / m_max_columns : 0;
-						if (current < m_max_columns)
-						{
-							if (m_enabled_wrap_around)
-							{
-								m_content->cursorEnd();
-								do
-								{
-									m_content->cursorMove(-1);
-									newSel = m_content->cursorGet();
-									newColumn = newSel % m_max_columns;
-								} while (oldColumn != newColumn);
-							}
-							else
-							{
-								m_content->cursorHome();
-								m_content->cursorMove(oldSel);
-								break;
-							}
-							if (wrap)
-							{
-								m_content->cursorHome();
-								m_content->cursorMove(oldSel);
-								break;
-							}
-							wrap++;
-						}
-						current = newSel;
-					} while (newSel != oldSel && !m_content->currentCursorSelectable());
+						int col = oldSel % m_max_columns;
+						int lastRow = (m_content->size() - 1) / m_max_columns;
+						int wrappedIndex = lastRow * m_max_columns + col;
+						if (wrappedIndex >= m_content->size())
+							wrappedIndex = m_content->size() - 1;
+						m_content->cursorSet(wrappedIndex);
+						newSel = wrappedIndex;
+					}
+					else
+					{
+						break;
+					}
 				}
+		
+				m_selected = newSel;
+		
+				m_scroll_direction = moveUp;
+				m_scroll_current_offset = 0;
+				m_scroll_target_offset = m_itemheight + m_spacing.y();
+				m_animating_scroll = true;
+				m_scroll_timer->start(16, true);
 				break;
 			}
 			[[fallthrough]];
@@ -1547,57 +1537,64 @@ void eListbox::moveSelection(int dir)
 		case moveDown:
 			if (isGrid)
 			{
-				if (dir == moveTop)
-				{
-					do
-					{
-						m_content->cursorMove(1);
-						newSel = m_content->cursorGet();
-					} while (newSel != oldSel && !m_content->currentCursorSelectable());
-					break;
-				}
-
 				int current = oldSel;
-				do
+				m_content->cursorMove(m_max_columns);
+				newSel = m_content->cursorGet();
+				if (newSel == oldSel)
 				{
-					bool wrap = (current + m_max_columns) >= m_content->size();
-					if (wrap && m_enabled_wrap_around)
+					if (m_enabled_wrap_around)
 					{
+						int col = oldSel % m_max_columns;
 						m_content->cursorHome();
-						m_content->cursorMove(oldColumn);
-						if (m_content->currentCursorSelectable())
-							break;
+						m_content->cursorMove(col);
+						newSel = m_content->cursorGet();
 					}
 					else
-						m_content->cursorMove(indexChanged ? 1 : m_max_columns);
-
-					if (!m_content->cursorValid())
 					{
-						if (m_enabled_wrap_around)
-							m_content->cursorHome();
-						else
-							m_content->cursorSet(oldSel);
+						break;
 					}
-					newSel = m_content->cursorGet();
-					current = newSel;
-				} while (newSel != oldSel && !m_content->currentCursorSelectable());
+				}
+		
+				m_selected = newSel;
+		
+				m_scroll_direction = moveDown;
+				m_scroll_current_offset = 0;
+				m_scroll_target_offset = m_itemheight + m_spacing.y();
+				m_animating_scroll = true;
+				m_scroll_timer->start(16, true);
 				break;
 			}
 			[[fallthrough]];
 		case moveRight:
-			do
+			if (isGrid)
 			{
+				int row = oldSel / m_max_columns;
 				m_content->cursorMove(1);
-				if (!m_content->cursorValid())
+				newSel = m_content->cursorGet();
+		
+				if ((newSel / m_max_columns) != row || newSel == oldSel)
 				{
 					if (m_enabled_wrap_around)
-						m_content->cursorHome();
+					{
+						m_content->cursorMove(-(m_max_columns - 1));
+						newSel = m_content->cursorGet();
+					}
 					else
+					{
 						m_content->cursorSet(oldSel);
+						break;
+					}
 				}
-				newSel = m_content->cursorGet();
-			} while (newSel != oldSel && !m_content->currentCursorSelectable());
-			break;
+		
+				m_selected = newSel;
+		
+				m_scroll_direction = moveRight;
+				m_scroll_current_offset = 0;
+				m_scroll_target_offset = m_itemwidth + m_spacing.x();
+				m_animating_scroll = true;
+				m_scroll_timer->start(16, true);
+				break;
+			}
 		case movePageUp:
 		{
 			int pageind;
