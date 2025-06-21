@@ -58,7 +58,8 @@ eListbox::eListbox(eWidget *parent) : eWidget(parent), m_prev_scrollbar_page(-1)
 	if (m_scrollbar_mode != showNever)
 		setScrollbarMode(m_scrollbar_mode);
 
-	m_scroll_timer = new eTimer(this);
+	//m_scroll_timer = new eTimer(this);
+	m_scroll_timer = eTimer::create(eApp);
 	CONNECT(m_scroll_timer->timeout, eListbox::onScrollTimer);
 }
 
@@ -67,8 +68,8 @@ eListbox::~eListbox()
 	if (m_scrollbar)
 		delete m_scrollbar;
 
-	if (m_scroll_timer)
-		delete m_scroll_timer;
+	//if (m_scroll_timer)
+		//delete m_scroll_timer;
 	
 	allowNativeKeys(false);
 	
