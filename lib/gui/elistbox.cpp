@@ -1481,35 +1481,47 @@ void eListbox::moveSelection(int dir)
 			} while (newSel != oldSel && !m_content->currentCursorSelectable());
 			break;
 		case moveLeft:
-			if (isGrid) {
-				int col = oldSel % m_max_columns;
-				if (col > 0) {
-					m_selected = oldSel - 1; // Move left within row
-				} else if (m_enabled_wrap_around) {
-					int row = oldSel / m_max_columns;
-					m_selected = (row * m_max_columns) + (m_max_columns - 1); // Wrap to last column
-					if (m_selected >= m_content->size()) {
-						m_selected = m_content->size() - 1; // Ensure within bounds
-					}
+		{
+			if (isGrid)
+			{
+				int firstVisibleIndex = m_top * m_max_columns;
+				int lastVisibleIndex = std::min((int)m_content->size(), firstVisibleIndex + m_max_columns * m_max_rows);
+		
+				if (oldSel > firstVisibleIndex)
+				{
+					m_selected = oldSel - 1;  // Move left across items
 				}
-				if (m_selected != oldSel) {
-					m_content->cursorSet(m_selected); // Update content cursor
+				else if (m_enabled_wrap_around)
+				{
+					// Wrap to last visible item on page
+					m_selected = lastVisibleIndex - 1;
+				}
+		
+				if (m_selected != oldSel)
+				{
+					m_content->cursorSet(m_selected); // Update cursor
 					gRegion inv = eRect(getItemPostion(m_selected), eSize(m_style.m_selection_width, m_style.m_selection_height));
 					inv |= eRect(getItemPostion(oldSel), eSize(m_style.m_selection_width, m_style.m_selection_height));
-					invalidate(inv); // Invalidate old and new cursor positions
+					invalidate(inv); // Redraw old and new
 					selectionChanged(); // Notify selection change
 				}
 				break;
 			}
+		
+			// Non-grid behavior (unchanged)
 			do {
 				m_content->cursorMove(-1);
 				newSel = m_content->cursorGet();
-				if (newSel == prevSel) {
-					if (m_enabled_wrap_around) {
+				if (newSel == prevSel)
+				{
+					if (m_enabled_wrap_around)
+					{
 						m_content->cursorEnd();
 						m_content->cursorMove(-1);
 						newSel = m_content->cursorGet();
-					} else {
+					}
+					else
+					{
 						m_content->cursorSet(oldSel);
 						break;
 					}
@@ -1517,6 +1529,8 @@ void eListbox::moveSelection(int dir)
 				prevSel = newSel;
 			} while (newSel != oldSel && !m_content->currentCursorSelectable());
 			break;
+		}
+
 		case moveTop:
 			m_content->cursorHome();
 			[[fallthrough]];
@@ -1583,35 +1597,46 @@ void eListbox::moveSelection(int dir)
 			break;
 		}
 		case moveRight:
-			if (isGrid) {
-				int col = oldSel % m_max_columns;
-				if (col < m_max_columns - 1 && oldSel + 1 < m_content->size()) {
-					m_selected = oldSel + 1; // Move right within row
-				} else if (m_enabled_wrap_around) {
-					int row = oldSel / m_max_columns;
-					m_selected = row * m_max_columns; // Wrap to first column
-					if (m_selected >= m_content->size()) {
-						m_selected = m_content->size() - 1; // Ensure within bounds
-					}
+		{
+			if (isGrid)
+			{
+				int firstVisibleIndex = m_top * m_max_columns;
+				int lastVisibleIndex = std::min((int)m_content->size(), firstVisibleIndex + m_max_columns * m_max_rows);
+		
+				if (oldSel + 1 < lastVisibleIndex)
+				{
+					m_selected = oldSel + 1;  // Move right across grid page
 				}
-				if (m_selected != oldSel) {
-					m_content->cursorSet(m_selected); // Update content cursor
+				else if (m_enabled_wrap_around)
+				{
+					m_selected = firstVisibleIndex;  // Wrap to first item on page
+				}
+		
+				if (m_selected != oldSel)
+				{
+					m_content->cursorSet(m_selected);  // Update content cursor
 					gRegion inv = eRect(getItemPostion(m_selected), eSize(m_style.m_selection_width, m_style.m_selection_height));
 					inv |= eRect(getItemPostion(oldSel), eSize(m_style.m_selection_width, m_style.m_selection_height));
-					invalidate(inv); // Invalidate old and new cursor positions
-					selectionChanged(); // Notify selection change
+					invalidate(inv);  // Redraw old and new cursor positions
+					selectionChanged();  // Notify listener
 				}
-				break; // Remove [[fallthrough]] to prevent executing moveDown
+				break;
 			}
+		
+			// Non-grid fallback
 			do {
 				m_content->cursorMove(-1);
 				newSel = m_content->cursorGet();
-				if (newSel == prevSel) {
-					if (m_enabled_wrap_around) {
+				if (newSel == prevSel)
+				{
+					if (m_enabled_wrap_around)
+					{
 						m_content->cursorEnd();
 						m_content->cursorMove(-1);
 						newSel = m_content->cursorGet();
-					} else {
+					}
+					else
+					{
 						m_content->cursorSet(oldSel);
 						break;
 					}
@@ -1619,6 +1644,8 @@ void eListbox::moveSelection(int dir)
 				prevSel = newSel;
 			} while (newSel != oldSel && !m_content->currentCursorSelectable());
 			break;
+		}
+
 		case movePageUp:
 		{
 			int pageind;
