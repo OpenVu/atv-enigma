@@ -1335,9 +1335,9 @@ void eListbox::moveSelection(int dir)
 		return;
 	/* if our list does not have one entry, don't do anything. */
 	int maxItems = (m_orientation == orVertical) ? m_max_rows : m_max_columns;
-	if (m_orientation == orGrid)
-	{
+	if (m_orientation == orGrid) {
 		maxItems = m_max_rows * m_max_columns;
+		m_selected = 0; // Fix cursor at index 0 for grid
 	}
 
 	if (!maxItems || !m_content->size())
@@ -1466,32 +1466,26 @@ void eListbox::moveSelection(int dir)
 			[[fallthrough]];
 		case moveUp:
 			if (isGrid) {
-				int current = oldSel;
-				m_content->cursorMove(-m_max_columns);
-				newSel = m_content->cursorGet();
-				if (newSel == oldSel) {
-					if (m_enabled_wrap_around) {
-						int col = oldSel % m_max_columns;
-						int lastRow = (m_content->size() - 1) / m_max_columns;
-						int wrappedIndex = lastRow * m_max_columns + col;
-						if (wrappedIndex >= m_content->size())
-							wrappedIndex = m_content->size() - 1;
-						m_content->cursorSet(wrappedIndex);
-						newSel = wrappedIndex;
-					} else {
-						break;
+				if (m_top > 0) {
+					m_scroll_direction = moveDown; // Rows slide down
+					m_scroll_current_offset = 0;
+					m_scroll_target_offset = -(m_itemheight + m_spacing.y()); // Negative for downward slide
+					m_animating_scroll = true;
+					m_scroll_timer->start(16, true);
+					m_top--; // Move view up (show previous row)
+					invalidate();
+				} else if (m_enabled_wrap_around) {
+					int lastRow = (m_content->size() - 1) / m_max_columns;
+					if (lastRow > m_max_rows - 1) {
+						m_top = lastRow - (m_max_rows - 1);
+						m_scroll_direction = moveDown;
+						m_scroll_current_offset = 0;
+						m_scroll_target_offset = -(m_itemheight + m_spacing.y());
+						m_animating_scroll = true;
+						m_scroll_timer->start(16, true);
+						invalidate();
 					}
 				}
-				m_selected = newSel;
-				m_scroll_direction = moveDown; // Rows slide down
-				m_scroll_current_offset = 0;
-				m_scroll_target_offset = -(m_itemheight + m_spacing.y()); // Negative for downward slide
-				m_animating_scroll = true;
-				m_scroll_timer->start(16, true);
-				// Update top to reflect new row
-				m_top = (newSel / m_max_columns) - ((m_max_rows - 1) / 2);
-				if (m_top < 0) m_top = 0;
-				invalidate();
 				break;
 			}
 			[[fallthrough]];
@@ -1526,29 +1520,24 @@ void eListbox::moveSelection(int dir)
 			[[fallthrough]];
 		case moveDown:
 			if (isGrid) {
-				int current = oldSel;
-				m_content->cursorMove(m_max_columns);
-				newSel = m_content->cursorGet();
-				if (newSel == oldSel) {
-					if (m_enabled_wrap_around) {
-						int col = oldSel % m_max_columns;
-						m_content->cursorHome();
-						m_content->cursorMove(col);
-						newSel = m_content->cursorGet();
-					} else {
-						break;
-					}
+				int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
+				if (m_top < maxRows - m_max_rows) {
+					m_scroll_direction = moveUp; // Rows slide up
+					m_scroll_current_offset = 0;
+					m_scroll_target_offset = m_itemheight + m_spacing.y(); // Positive for upward slide
+					m_animating_scroll = true;
+					m_scroll_timer->start(16, true);
+					m_top++; // Move view down (show next row)
+					invalidate();
+				} else if (m_enabled_wrap_around) {
+					m_top = 0;
+					m_scroll_direction = moveUp;
+					m_scroll_current_offset = 0;
+					m_scroll_target_offset = m_itemheight + m_spacing.y();
+					m_animating_scroll = true;
+					m_scroll_timer->start(16, true);
+					invalidate();
 				}
-				m_selected = newSel;
-				m_scroll_direction = moveUp; // Rows slide up
-				m_scroll_current_offset = 0;
-				m_scroll_target_offset = m_itemheight + m_spacing.y(); // Positive for upward slide
-				m_animating_scroll = true;
-				m_scroll_timer->start(16, true);
-				// Update top to reflect new row
-				m_top = (newSel / m_max_columns) - ((m_max_rows - 1) / 2);
-				if (m_top < 0) m_top = 0;
-				invalidate();
 				break;
 			}
 		case moveRight:
