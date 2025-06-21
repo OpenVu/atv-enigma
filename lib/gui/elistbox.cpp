@@ -1506,16 +1506,20 @@ void eListbox::moveSelection(int dir)
 			if (isGrid) {
 				int col = oldSel % m_max_columns;
 				if (col > 0) {
-					m_selected = oldSel - 1;
+					m_selected = oldSel - 1; // Move left within row
 				} else if (m_enabled_wrap_around) {
-					m_selected = oldSel + (m_max_columns - 1);
-					if (m_selected >= m_content->size()) m_selected = m_content->size() - 1;
+					int row = oldSel / m_max_columns;
+					m_selected = (row * m_max_columns) + (m_max_columns - 1); // Wrap to last column
+					if (m_selected >= m_content->size()) {
+						m_selected = m_content->size() - 1; // Ensure within bounds
+					}
 				}
 				if (m_selected != oldSel) {
+					m_content->cursorSet(m_selected); // Update content cursor
 					gRegion inv = eRect(getItemPostion(m_selected), eSize(m_style.m_selection_width, m_style.m_selection_height));
 					inv |= eRect(getItemPostion(oldSel), eSize(m_style.m_selection_width, m_style.m_selection_height));
-					invalidate(inv);
-					selectionChanged();
+					invalidate(inv); // Invalidate old and new cursor positions
+					selectionChanged(); // Notify selection change
 				}
 				break;
 			}
@@ -1582,16 +1586,20 @@ void eListbox::moveSelection(int dir)
 			if (isGrid) {
 				int col = oldSel % m_max_columns;
 				if (col < m_max_columns - 1 && oldSel + 1 < m_content->size()) {
-					m_selected = oldSel + 1;
+					m_selected = oldSel + 1; // Move right within row
 				} else if (m_enabled_wrap_around) {
-					m_selected = oldSel - (m_max_columns - 1);
-					if (m_selected < 0) m_selected = 0;
+					int row = oldSel / m_max_columns;
+					m_selected = row * m_max_columns; // Wrap to first column
+					if (m_selected >= m_content->size()) {
+						m_selected = m_content->size() - 1; // Ensure within bounds
+					}
 				}
 				if (m_selected != oldSel) {
+					m_content->cursorSet(m_selected); // Update content cursor
 					gRegion inv = eRect(getItemPostion(m_selected), eSize(m_style.m_selection_width, m_style.m_selection_height));
 					inv |= eRect(getItemPostion(oldSel), eSize(m_style.m_selection_width, m_style.m_selection_height));
-					invalidate(inv);
-					selectionChanged();
+					invalidate(inv); // Invalidate old and new cursor positions
+					selectionChanged(); // Notify selection change
 				}
 				break;
 			}
