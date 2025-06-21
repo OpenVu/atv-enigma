@@ -1365,7 +1365,7 @@ void eListbox::moveSelection(int dir)
 	m_dir = dir;
 #endif
 
-	// ✅ Injected smooth scroll + wraparound for Horizontal listbox
+	// Injected smooth scroll + wraparound for Horizontal listbox
 	if (m_orientation == orHorizontal && (dir == moveRight || dir == moveLeft))
 	{
 		int delta = (dir == moveRight) ? 1 : -1;
@@ -1604,7 +1604,7 @@ void eListbox::moveSelection(int dir)
 						m_selected = newSel;
 						eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
 						if (m_selected >= m_top + m_max_rows) {
-							m_top = m_selected - (m_max_rows - 1);
+							m_top = std::min(m_selected - (m_max_rows - 1), (int)(m_content->size() - m_max_rows));
 							eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
 							invalidate();
 						}
