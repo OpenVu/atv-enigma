@@ -1573,9 +1573,10 @@ void eListbox::moveSelection(int dir)
 				newSel = m_content->cursorGet();
 				if (newSel == oldSel) {
 					if (m_enabled_wrap_around) {
-						m_content->cursorHome();
+						m_content->cursorHome(); // Wrap to first index
 						newSel = m_content->cursorGet();
 					} else {
+						m_content->cursorSet(oldSel);
 						break;
 					}
 				}
