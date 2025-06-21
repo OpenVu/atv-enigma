@@ -1229,17 +1229,10 @@ ePoint eListbox::getItemPostion(int index)
 		if (m_animating_scroll && (m_scroll_direction == moveUp || m_scroll_direction == moveDown)) {
 			posy += m_scroll_current_offset; // Offset all rows, not just cursor
 		}
-		// Keep legacy grid scroll smooth animation
-		if (m_page_transition_active) {
-			posy += m_page_transition_offset;
-		}
 	} else if (m_orientation == orHorizontal) {
 		posx = (m_itemwidth + spacing.x()) * (index - m_left) - m_scroll_current_offset;
 	} else {
 		posy = (m_itemheight + spacing.y()) * (index - m_top);
-		if (m_animating_scroll) {
-			posy += m_scroll_current_offset;
-		}
 	}
 
 	return ePoint(posx + xOffset, posy + yOffset);
@@ -1248,74 +1241,47 @@ ePoint eListbox::getItemPostion(int index)
 
 void eListbox::onScrollTimer()
 {
-	// Handle vertical or grid scroll animation
-	if (!m_page_transition_active && !m_animating_scroll)
+	if (!m_page_transition_active)
 	{
 		m_scroll_timer->stop();
 		return;
 	}
 
 	const int total_offset = (m_itemheight + m_spacing.y()) * m_max_rows;
-	const int item_offset = (m_itemheight + m_spacing.y());
 	const float ease = 0.25f;
 
-	// Grid page transition
-	if (m_page_transition_active)
+	int target = m_page_transition_direction * total_offset;
+	int remaining = target - m_page_transition_offset;
+	int step = static_cast<int>(remaining * ease);
+
+	if (std::abs(step) < 1)
+		step = (remaining > 0) ? 1 : -1;
+
+	m_page_transition_offset += step;
+	invalidate();
+
+	if (std::abs(target - m_page_transition_offset) < 1)
 	{
-		int target = m_page_transition_direction * total_offset;
-		int remaining = target - m_page_transition_offset;
-		int step = static_cast<int>(remaining * ease);
+		// Animation done
+		m_page_transition_offset = 0;
+		m_page_transition_active = false;
+		m_scroll_timer->stop();
 
-		if (std::abs(step) < 1)
-			step = (remaining > 0) ? 1 : -1;
+		if (m_page_transition_direction == 1)
+		{
+			// ✅ Only now update m_top
+			m_top++;
+		}
+		else if (m_page_transition_direction == -1 && m_top > 0)
+		{
+			m_top--;
+		}
 
-		m_page_transition_offset += step;
 		invalidate();
-
-		if (std::abs(target - m_page_transition_offset) < 1)
-		{
-			m_page_transition_offset = 0;
-			m_page_transition_active = false;
-			m_scroll_timer->stop();
-
-			if (m_page_transition_direction == 1)
-				m_top++;
-			else if (m_page_transition_direction == -1 && m_top > 0)
-				m_top--;
-
-			invalidate();
-		}
-		else
-		{
-			m_scroll_timer->start(16, true);
-		}
 	}
-
-	// Vertical smooth scroll (index ≥4)
-	else if (m_animating_scroll)
+	else
 	{
-		int remaining = m_scroll_target_offset - m_scroll_current_offset;
-		int step = static_cast<int>(remaining * ease);
-
-		if (std::abs(step) < 1)
-			step = (remaining > 0) ? 1 : -1;
-
-		m_scroll_current_offset += step;
-		invalidate();
-
-		if (std::abs(m_scroll_target_offset - m_scroll_current_offset) < 1)
-		{
-			m_scroll_current_offset = 0;
-			m_scroll_target_offset = 0;
-			m_animating_scroll = false;
-			m_scroll_timer->stop();
-
-			invalidate();
-		}
-		else
-		{
-			m_scroll_timer->start(16, true);
-		}
+		m_scroll_timer->start(16, true);
 	}
 }
 
@@ -1487,109 +1453,48 @@ void eListbox::moveSelection(int dir)
 			m_content->cursorEnd();
 			[[fallthrough]];
 		case moveUp:
-		{
-			if (isGrid)
-			{
-				eDebug("[eListbox] moveUp: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d",
-					oldSel, m_selected, m_top,
-					(m_content->size() + m_max_columns - 1) / m_max_columns,
-					m_enabled_wrap_around);
-		
+			if (isGrid) {
+				eDebug("[eListbox] moveUp: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, (m_content->size() + m_max_columns - 1) / m_max_columns, m_enabled_wrap_around);
 				int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
-		
-				// Prevent new scroll if already animating
-				if (m_animating_scroll)
-				{
-					eDebug("[eListbox] moveUp: animation already active, skipping.");
-					break;
-				}
-		
-				if (m_top > 0)
-				{
-					m_scroll_direction = moveDown;
+				if (m_top > 0) {
+					m_scroll_direction = moveDown; // Rows slide down
 					m_scroll_current_offset = 0;
-					m_scroll_target_offset = -(m_itemheight + m_spacing.y());
+					m_scroll_target_offset = -(m_itemheight + m_spacing.y()); // Negative for downward slide
 					m_animating_scroll = true;
 					m_scroll_timer->start(16, true);
-					m_top--;  // Move up a row
-					eDebug("[eListbox] moveUp: sliding down, m_top=%d, scroll_direction=%d, target_offset=%d",
-						m_top, m_scroll_direction, m_scroll_target_offset);
+					m_top--; // Shift all rows up
+					eDebug("[eListbox] moveUp: sliding down, m_top=%d, scroll_direction=%d, target_offset=%d", m_top, m_scroll_direction, m_scroll_target_offset);
 					invalidate();
-				}
-				else if (m_enabled_wrap_around && maxRows > m_max_rows)
-				{
+				} else if (m_enabled_wrap_around && maxRows > m_max_rows) {
 					m_top = maxRows - m_max_rows;
 					m_scroll_direction = moveDown;
 					m_scroll_current_offset = 0;
 					m_scroll_target_offset = -(m_itemheight + m_spacing.y());
 					m_animating_scroll = true;
 					m_scroll_timer->start(16, true);
-					eDebug("[eListbox] moveUp: wrapped to end, m_top=%d", m_top);
+					eDebug("[eListbox] moveUp: wrapped, m_top=%d, scroll_direction=%d, target_offset=%d", m_top, m_scroll_direction, m_scroll_target_offset);
 					invalidate();
-				}
-				else
-				{
+				} else {
 					eDebug("[eListbox] moveUp: no action, at top");
 				}
 				break;
 			}
-			else if (m_orientation == orVertical)
-			{
-				if (m_selected > 0 && m_selected <= 3)
-				{
-					m_content->cursorMove(-1);
-					m_selected = m_content->cursorGet();
-					selectionChanged();
-					invalidate();
-				}
-				else if (m_selected > 3 && m_top > 0)
-				{
-					if (!m_animating_scroll)
-					{
-						m_scroll_direction = moveDown;
-						m_scroll_current_offset = 0;
-						m_scroll_target_offset = -(m_itemheight + m_spacing.y());
-						m_animating_scroll = true;
-						m_scroll_timer->start(16, true);
-						m_top--;
+			do {
+				m_content->cursorMove(-1);
+				newSel = m_content->cursorGet();
+				if (newSel == oldSel) {
+					if (m_enabled_wrap_around && m_content->size() > 0) {
+						m_content->cursorEnd();
+						m_content->cursorMove(-1);
+						newSel = m_content->cursorGet();
+					} else {
+						m_content->cursorSet(oldSel);
+						break;
 					}
 				}
-				break;
-			}
-			else
-			{
-				// Normal list mode behavior
-				do
-				{
-					m_content->cursorMove(-1);
-					newSel = m_content->cursorGet();
-		
-					if (newSel == oldSel)
-					{
-						if (m_enabled_wrap_around && m_content->size() > 0)
-						{
-							m_content->cursorEnd();
-							m_content->cursorMove(-1);
-							newSel = m_content->cursorGet();
-						}
-						else
-						{
-							m_content->cursorSet(oldSel);
-							break;
-						}
-					}
-					prevSel = newSel;
-				} while (newSel != oldSel && !m_content->currentCursorSelectable());
-		
-				if (newSel != oldSel)
-				{
-					m_selected = newSel;
-					selectionChanged();
-					invalidate();
-				}
-				break;
-			}
-		}
+				prevSel = newSel;
+			} while (newSel != oldSel && !m_content->currentCursorSelectable());
+			break;
 
 		case moveLeft:
 		{
@@ -1653,67 +1558,35 @@ void eListbox::moveSelection(int dir)
 		{
 			int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
 		
-			if (isGrid)
-			{
+			if (isGrid) {
 				eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, maxRows, m_enabled_wrap_around);
 		
 				// Prevent new animation if one is already running
-				if (m_page_transition_active)
-				{
+				if (m_page_transition_active) {
 					eDebug("[eListbox] moveDown: animation already active, skipping.");
 					break;
 				}
 		
 				// Start page transition if within bounds
-				if (m_top < maxRows - m_max_rows)
-				{
+				if (m_top < maxRows - m_max_rows) {
 					m_page_transition_active = true;
 					m_page_transition_direction = 1; // Slide current page up
 					m_scroll_timer->start(16, true);
-					return;
+					return; // Prevent m_top++ or selection change now
 				}
-				else if (m_enabled_wrap_around && maxRows > m_max_rows)
-				{
+				else if (m_enabled_wrap_around && maxRows > m_max_rows) {
 					m_page_transition_active = true;
 					m_page_transition_direction = 1;
 					m_top = -m_max_rows; // temporary state for visual wrap (fixed after transition)
 					m_scroll_timer->start(16, true);
 					return;
 				}
-				else
-				{
+				else {
 					eDebug("[eListbox] moveDown: no action, at bottom");
 				}
 			}
-			else if (m_orientation == orVertical)
-			{
-				// Smooth focus cursor move from 0 to 3
-				if (m_selected < 3)
-				{
-					m_content->cursorMove(1);
-					m_selected = m_content->cursorGet();
-					selectionChanged();
-					invalidate();
-				}
-				else
-				{
-					// Smooth scroll from index 4 and up
-					if (!m_animating_scroll)
-					{
-						m_scroll_direction = moveUp;
-						m_scroll_current_offset = 0;
-						m_scroll_target_offset = m_itemheight + m_spacing.y();
-						m_animating_scroll = true;
-						m_scroll_timer->start(16, true);
-						m_top++;
-					}
-				}
-			}
-			else
-			{
-				// Normal (non-grid, non-vertical) list movement
-				if (m_selected >= m_content->size() - 1 && m_enabled_wrap_around && m_content->size() > 0)
-				{
+			else {
+				if (m_selected >= m_content->size() - 1 && m_enabled_wrap_around && m_content->size() > 0) {
 					eDebug("[eListbox] moveDown: at last index, wrapping to first");
 					m_content->cursorHome();
 					newSel = m_content->cursorGet();
@@ -1723,25 +1596,21 @@ void eListbox::moveSelection(int dir)
 					invalidate();
 					selectionChanged();
 				}
-				else
-				{
+				else {
 					m_content->cursorMove(1);
 					newSel = m_content->cursorGet();
 					eDebug("[eListbox] moveDown: after cursorMove(1), newSel=%d, oldSel=%d", newSel, oldSel);
-					if (newSel != oldSel && m_content->currentCursorSelectable())
-					{
+					if (newSel != oldSel && m_content->currentCursorSelectable()) {
 						m_selected = newSel;
 						eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
-						if (m_selected >= m_top + m_max_rows)
-						{
+						if (m_selected >= m_top + m_max_rows) {
 							m_top = m_selected - (m_max_rows - 1);
 							eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
 							invalidate();
 						}
 						selectionChanged();
 					}
-					else
-					{
+					else {
 						eDebug("[eListbox] moveDown: restoring oldSel=%d", oldSel);
 						m_content->cursorSet(oldSel);
 					}
