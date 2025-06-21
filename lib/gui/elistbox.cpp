@@ -1329,7 +1329,7 @@ void eListbox::onScrollTimer()
 	}
 }
 
-void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride = -1)
+void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride)
 {
 	int savedTop = m_top;
 	if (topOverride != -1)
