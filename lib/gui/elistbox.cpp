@@ -1648,71 +1648,88 @@ void eListbox::moveSelection(int dir)
 			} while (newSel != oldSel && !m_content->currentCursorSelectable());
 			break;
 		case movePageUp:
-			eDebug("[eListbox] movePageUp: oldSel=%d, m_selected=%d, m_top=%d, isGrid=%d", oldSel, m_selected, m_top, isGrid);
-			if (isGrid) {
-				int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
-				if (m_top > 0) {
-					m_top -= m_max_rows;
-					if (m_top < 0)
-						m_top = 0;
-					m_scroll_direction = moveDown;
-					m_scroll_current_offset = 0;
-					m_scroll_target_offset = -(m_itemheight + m_spacing.y()) * m_max_rows;
-					m_animating_scroll = true;
-					m_scroll_timer->start(16, true);
-					eDebug("[eListbox] movePageUp: m_top=%d, target_offset=%d", m_top, m_scroll_target_offset);
-					invalidate();
+		{
+			int pageind;
+			do
+			{
+				m_content->cursorMove(-pageOffset);
+				newSel = m_content->cursorGet();
+				pageind = newSel % maxItems; // rememer were we land in thsi page (could be different on topmost page)
+				prevSel = newSel - pageind;	 // get top of page index
+				// find first selectable entry in new page. First check bottom part, than upper part
+				while (newSel != prevSel + maxItems && m_content->cursorValid() && !m_content->currentCursorSelectable())
+				{
+					m_content->cursorMove(1);
+					newSel = m_content->cursorGet();
 				}
-				break;
-			}
-			if (m_selected >= m_top) {
-				newSel = m_top;
-			} else {
-				newSel = m_selected - m_max_rows;
-				if (newSel < 0)
-					newSel = 0;
-			}
-			m_content->cursorSet(newSel);
-			newSel = m_content->cursorGet();
-			if (newSel != oldSel && m_content->currentCursorSelectable()) {
-				m_selected = newSel;
-				if (m_selected < m_top)
-					m_top = m_selected;
-				invalidate();
-				selectionChanged();
-			}
+				if (!m_content->currentCursorSelectable()) // no selectable found in bottom part of page
+				{
+					m_content->cursorSet(prevSel + pageind);
+					while (newSel != prevSel && !m_content->currentCursorSelectable())
+					{
+						m_content->cursorMove(-1);
+						newSel = m_content->cursorGet();
+					}
+				}
+				if (m_content->currentCursorSelectable())
+					break;
+				if (newSel == 0) // at top and nothing found . Go down till something selectable or old location
+				{
+					while (newSel != oldSel && !m_content->currentCursorSelectable())
+					{
+						m_content->cursorMove(1);
+						newSel = m_content->cursorGet();
+					}
+					break;
+				}
+				m_content->cursorSet(prevSel + pageind);
+			} while (newSel == prevSel);
 			break;
+		}
 		case movePageDown:
-			eDebug("[eListbox] movePageDown: oldSel=%d, m_selected=%d, m_top=%d, isGrid=%d", oldSel, m_selected, m_top, isGrid);
-			if (isGrid) {
-				int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
-				if (m_top < maxRows - m_max_rows) {
-					m_top += m_max_rows;
-					if (m_top > maxRows - m_max_rows)
-						m_top = maxRows - m_max_rows;
-					m_scroll_direction = moveUp;
-					m_scroll_current_offset = 0;
-					m_scroll_target_offset = (m_itemheight + m_spacing.y()) * m_max_rows;
-					m_animating_scroll = true;
-					m_scroll_timer->start(16, true);
-					eDebug("[eListbox] movePageDown: m_top=%d, target_offset=%d", m_top, m_scroll_target_offset);
-					invalidate();
+		{
+			int pageind;
+			do
+			{
+				m_content->cursorMove(pageOffset);
+				if (!m_content->cursorValid())
+					m_content->cursorMove(-1);
+				newSel = m_content->cursorGet();
+				pageind = newSel % maxItems;
+				prevSel = newSel - pageind; // get top of page index
+				// find a selectable entry in the new page. first look up then down from current screenlocation on the page
+				while (newSel != prevSel && !m_content->currentCursorSelectable())
+				{
+					m_content->cursorMove(-1);
+					newSel = m_content->cursorGet();
 				}
-				break;
-			}
-			newSel = m_selected + m_max_rows;
-			if (newSel >= m_content->size())
-				newSel = m_content->size() - 1;
-			m_content->cursorSet(newSel);
-			newSel = m_content->cursorGet();
-			if (newSel != oldSel && m_content->currentCursorSelectable()) {
-				m_selected = newSel;
-				if (m_selected >= m_top + m_max_rows)
-					m_top = m_selected - (m_max_rows - 1);
-				invalidate();
-				selectionChanged();
-			}
+				if (!m_content->currentCursorSelectable()) // no selectable found in top part of page
+				{
+					m_content->cursorSet(prevSel + pageind);
+					do
+					{
+						m_content->cursorMove(1);
+						newSel = m_content->cursorGet();
+					} while (newSel != prevSel + maxItems && m_content->cursorValid() && !m_content->currentCursorSelectable());
+				}
+				if (!m_content->cursorValid())
+				{
+					// we reached the end of the list
+					// Back up till something selectable or we reach oldSel again
+					// E.g this should bring us back to the last selectable item on the original page
+					do
+					{
+						m_content->cursorMove(-1);
+						newSel = m_content->cursorGet();
+					} while (newSel != oldSel && !m_content->currentCursorSelectable());
+					break;
+				}
+				if (newSel != prevSel + maxItems)
+					break;
+				m_content->cursorSet(prevSel + pageind); // prepare for next page down
+			} while (newSel == prevSel + maxItems);
 			break;
+		}
 		}
 
 	if (m_orientation == orHorizontal)
