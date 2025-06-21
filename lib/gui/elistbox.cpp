@@ -1329,7 +1329,7 @@ void eListbox::onScrollTimer()
 	}
 }
 
-void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride)
+void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride /* = -1 */)
 {
 	ePtr<eWindowStyle> style;
 	getStyle(style);
