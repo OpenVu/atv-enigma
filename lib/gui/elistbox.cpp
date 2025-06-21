@@ -1572,9 +1572,12 @@ void eListbox::moveSelection(int dir)
 				m_content->cursorMove(1);
 				newSel = m_content->cursorGet();
 				if (newSel == oldSel) {
-					if (m_enabled_wrap_around) {
+					if (m_enabled_wrap_around && m_content->size() > 0) {
 						m_content->cursorHome(); // Wrap to first index
 						newSel = m_content->cursorGet();
+						m_selected = newSel;
+						m_top = 0; // Reset view to top
+						invalidate();
 					} else {
 						m_content->cursorSet(oldSel);
 						break;
@@ -1582,6 +1585,14 @@ void eListbox::moveSelection(int dir)
 				}
 				prevSel = newSel;
 			} while (newSel != oldSel && !m_content->currentCursorSelectable());
+			m_selected = newSel;
+			if (m_selected != oldSel) {
+				selectionChanged();
+				if (m_selected >= m_top + m_max_rows) {
+					m_top = m_selected - (m_max_rows - 1); // Adjust view to keep cursor visible
+					invalidate();
+				}
+			}
 			break;
 		case moveRight:
 			if (isGrid) {
