@@ -1472,15 +1472,12 @@ void eListbox::moveSelection(int dir)
 			m_content->cursorEnd();
 			[[fallthrough]];
 		case moveUp:
-			if (isGrid)
-			{
+			if (isGrid) {
 				int current = oldSel;
 				m_content->cursorMove(-m_max_columns);
 				newSel = m_content->cursorGet();
-				if (newSel == oldSel)
-				{
-					if (m_enabled_wrap_around)
-					{
+				if (newSel == oldSel) {
+					if (m_enabled_wrap_around) {
 						int col = oldSel % m_max_columns;
 						int lastRow = (m_content->size() - 1) / m_max_columns;
 						int wrappedIndex = lastRow * m_max_columns + col;
@@ -1488,18 +1485,14 @@ void eListbox::moveSelection(int dir)
 							wrappedIndex = m_content->size() - 1;
 						m_content->cursorSet(wrappedIndex);
 						newSel = wrappedIndex;
-					}
-					else
-					{
+					} else {
 						break;
 					}
 				}
-		
 				m_selected = newSel;
-		
-				m_scroll_direction = moveUp;
+				m_scroll_direction = moveDown; // Slide down for Up key
 				m_scroll_current_offset = 0;
-				m_scroll_target_offset = m_itemheight + m_spacing.y();
+				m_scroll_target_offset = -(m_itemheight + m_spacing.y()); // Negative for downward slide
 				m_animating_scroll = true;
 				m_scroll_timer->start(16, true);
 				break;
@@ -1535,36 +1528,28 @@ void eListbox::moveSelection(int dir)
 				break;
 			[[fallthrough]];
 		case moveDown:
-			if (isGrid)
-			{
+			if (isGrid) {
 				int current = oldSel;
 				m_content->cursorMove(m_max_columns);
 				newSel = m_content->cursorGet();
-				if (newSel == oldSel)
-				{
-					if (m_enabled_wrap_around)
-					{
+				if (newSel == oldSel) {
+					if (m_enabled_wrap_around) {
 						int col = oldSel % m_max_columns;
 						m_content->cursorHome();
 						m_content->cursorMove(col);
 						newSel = m_content->cursorGet();
-					}
-					else
-					{
+					} else {
 						break;
 					}
 				}
-		
 				m_selected = newSel;
-		
-				m_scroll_direction = moveDown;
+				m_scroll_direction = moveUp; // Slide up for Down key
 				m_scroll_current_offset = 0;
-				m_scroll_target_offset = m_itemheight + m_spacing.y();
+				m_scroll_target_offset = m_itemheight + m_spacing.y(); // Positive for upward slide
 				m_animating_scroll = true;
 				m_scroll_timer->start(16, true);
 				break;
 			}
-			[[fallthrough]];
 		case moveRight:
 			if (isGrid) {
 				int row = oldRow;
