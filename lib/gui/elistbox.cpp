@@ -1560,18 +1560,19 @@ void eListbox::moveSelection(int dir)
 				break;
 			[[fallthrough]];
 		case moveDown:
+		{
+			int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
+		
 			if (isGrid) {
-				eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, (m_content->size() + m_max_columns - 1) / m_max_columns, m_enabled_wrap_around);
-				int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
+				eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, maxRows, m_enabled_wrap_around);
+				
 				if (m_top < maxRows - m_max_rows) {
 					m_scroll_direction = moveUp;
 					m_scroll_current_offset = 0;
-					m_scroll_target_offset = (m_itemheight + m_spacing.y()) * m_max_rows;  // Slide whole page
+					m_scroll_target_offset = (m_itemheight + m_spacing.y()) * m_max_rows;
 					m_animating_scroll = true;
 					m_scroll_timer->start(16, true);
-					// Delay m_top++ until animation completes!
-					invalidate();
-				}
+					invalidate(); // Delay m_top++ until animation completes!
 				} else if (m_enabled_wrap_around && maxRows > m_max_rows) {
 					m_top = 0;
 					m_scroll_direction = moveUp;
@@ -1584,36 +1585,37 @@ void eListbox::moveSelection(int dir)
 				} else {
 					eDebug("[eListbox] moveDown: no action, at bottom");
 				}
-				break;
-			}
-			if (m_selected >= m_content->size() - 1 && m_enabled_wrap_around && m_content->size() > 0) {
-				eDebug("[eListbox] moveDown: at last index, wrapping to first");
-				m_content->cursorHome();
-				newSel = m_content->cursorGet();
-				m_selected = newSel;
-				m_top = 0;
-				eDebug("[eListbox] moveDown: after cursorHome, newSel=%d, m_top=%d", newSel, m_top);
-				invalidate();
-				selectionChanged();
 			} else {
-				m_content->cursorMove(1);
-				newSel = m_content->cursorGet();
-				eDebug("[eListbox] moveDown: after cursorMove(1), newSel=%d, oldSel=%d", newSel, oldSel);
-				if (newSel != oldSel && m_content->currentCursorSelectable()) {
+				if (m_selected >= m_content->size() - 1 && m_enabled_wrap_around && m_content->size() > 0) {
+					eDebug("[eListbox] moveDown: at last index, wrapping to first");
+					m_content->cursorHome();
+					newSel = m_content->cursorGet();
 					m_selected = newSel;
-					eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
-					if (m_selected >= m_top + m_max_rows) {
-						m_top = m_selected - (m_max_rows - 1);
-						eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
-						invalidate();
-					}
+					m_top = 0;
+					eDebug("[eListbox] moveDown: after cursorHome, newSel=%d, m_top=%d", newSel, m_top);
+					invalidate();
 					selectionChanged();
 				} else {
-					eDebug("[eListbox] moveDown: restoring oldSel=%d", oldSel);
-					m_content->cursorSet(oldSel);
+					m_content->cursorMove(1);
+					newSel = m_content->cursorGet();
+					eDebug("[eListbox] moveDown: after cursorMove(1), newSel=%d, oldSel=%d", newSel, oldSel);
+					if (newSel != oldSel && m_content->currentCursorSelectable()) {
+						m_selected = newSel;
+						eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
+						if (m_selected >= m_top + m_max_rows) {
+							m_top = m_selected - (m_max_rows - 1);
+							eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
+							invalidate();
+						}
+						selectionChanged();
+					} else {
+						eDebug("[eListbox] moveDown: restoring oldSel=%d", oldSel);
+						m_content->cursorSet(oldSel);
+					}
 				}
 			}
 			break;
+		}
 		case moveRight:
 			if (isGrid) {
 				int col = oldSel % m_max_columns;
