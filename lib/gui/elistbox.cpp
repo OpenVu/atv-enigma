@@ -1281,23 +1281,16 @@ ePoint eListbox::getItemPostion(int index)
 	int posx = 0, posy = 0;
 	ePoint spacing = (index > 0) ? m_spacing : ePoint(0, 0);
 
-	if (m_orientation == orGrid)
-	{
+	if (m_orientation == orGrid) {
 		posx = (m_itemwidth + spacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns);
 		posy = (m_itemheight + spacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns);
-
-		// Apply animation offset
-		if (m_scroll_direction == moveLeft || m_scroll_direction == moveRight)
-			posx -= m_scroll_current_offset;
-		else if (m_scroll_direction == moveUp || m_scroll_direction == moveDown)
-			posy -= m_scroll_current_offset;
-	}
-	else if (m_orientation == orHorizontal)
-	{
+		// Apply animation offset to all rows
+		if (m_animating_scroll && (m_scroll_direction == moveUp || m_scroll_direction == moveDown)) {
+			posy += m_scroll_current_offset; // Offset all rows, not just cursor
+		}
+	} else if (m_orientation == orHorizontal) {
 		posx = (m_itemwidth + spacing.x()) * (index - m_left) - m_scroll_current_offset;
-	}
-	else // orVertical
-	{
+	} else {
 		posy = (m_itemheight + spacing.y()) * (index - m_top);
 	}
 
@@ -1490,11 +1483,15 @@ void eListbox::moveSelection(int dir)
 					}
 				}
 				m_selected = newSel;
-				m_scroll_direction = moveDown; // Slide down for Up key
+				m_scroll_direction = moveDown; // Rows slide down
 				m_scroll_current_offset = 0;
 				m_scroll_target_offset = -(m_itemheight + m_spacing.y()); // Negative for downward slide
 				m_animating_scroll = true;
 				m_scroll_timer->start(16, true);
+				// Update top to reflect new row
+				m_top = (newSel / m_max_columns) - ((m_max_rows - 1) / 2);
+				if (m_top < 0) m_top = 0;
+				invalidate();
 				break;
 			}
 			[[fallthrough]];
@@ -1543,11 +1540,15 @@ void eListbox::moveSelection(int dir)
 					}
 				}
 				m_selected = newSel;
-				m_scroll_direction = moveUp; // Slide up for Down key
+				m_scroll_direction = moveUp; // Rows slide up
 				m_scroll_current_offset = 0;
 				m_scroll_target_offset = m_itemheight + m_spacing.y(); // Positive for upward slide
 				m_animating_scroll = true;
 				m_scroll_timer->start(16, true);
+				// Update top to reflect new row
+				m_top = (newSel / m_max_columns) - ((m_max_rows - 1) / 2);
+				if (m_top < 0) m_top = 0;
+				invalidate();
 				break;
 			}
 		case moveRight:
