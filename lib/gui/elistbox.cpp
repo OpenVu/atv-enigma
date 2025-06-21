@@ -1466,25 +1466,28 @@ void eListbox::moveSelection(int dir)
 			[[fallthrough]];
 		case moveUp:
 			if (isGrid) {
+				eDebug("[eListbox] moveUp: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, (m_content->size() + m_max_columns - 1) / m_max_columns, m_enabled_wrap_around);
+				int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
 				if (m_top > 0) {
-					m_scroll_direction = moveDown; // All rows slide down
+					m_scroll_direction = moveDown; // Rows slide down
 					m_scroll_current_offset = 0;
 					m_scroll_target_offset = -(m_itemheight + m_spacing.y()); // Negative for downward slide
 					m_animating_scroll = true;
 					m_scroll_timer->start(16, true);
 					m_top--; // Shift all rows up
+					eDebug("[eListbox] moveUp: sliding down, m_top=%d, scroll_direction=%d, target_offset=%d", m_top, m_scroll_direction, m_scroll_target_offset);
 					invalidate();
-				} else if (m_enabled_wrap_around) {
-					int lastRow = (m_content->size() - 1) / m_max_columns;
-					if (lastRow > m_max_rows - 1) {
-						m_top = lastRow - (m_max_rows - 1);
-						m_scroll_direction = moveDown;
-						m_scroll_current_offset = 0;
-						m_scroll_target_offset = -(m_itemheight + m_spacing.y());
-						m_animating_scroll = true;
-						m_scroll_timer->start(16, true);
-						invalidate();
-					}
+				} else if (m_enabled_wrap_around && maxRows > m_max_rows) {
+					m_top = maxRows - m_max_rows;
+					m_scroll_direction = moveDown;
+					m_scroll_current_offset = 0;
+					m_scroll_target_offset = -(m_itemheight + m_spacing.y());
+					m_animating_scroll = true;
+					m_scroll_timer->start(16, true);
+					eDebug("[eListbox] moveUp: wrapped, m_top=%d, scroll_direction=%d, target_offset=%d", m_top, m_scroll_direction, m_scroll_target_offset);
+					invalidate();
+				} else {
+					eDebug("[eListbox] moveUp: no action, at top");
 				}
 				break;
 			}
@@ -1492,11 +1495,12 @@ void eListbox::moveSelection(int dir)
 				m_content->cursorMove(-1);
 				newSel = m_content->cursorGet();
 				if (newSel == oldSel) {
-					if (m_enabled_wrap_around) {
+					if (m_enabled_wrap_around && m_content->size() > 0) {
 						m_content->cursorEnd();
 						m_content->cursorMove(-1);
 						newSel = m_content->cursorGet();
 					} else {
+						m_content->cursorSet(oldSel);
 						break;
 					}
 				}
@@ -1549,27 +1553,31 @@ void eListbox::moveSelection(int dir)
 			[[fallthrough]];
 		case moveDown:
 			if (isGrid) {
+				eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, (m_content->size() + m_max_columns - 1) / m_max_columns, m_enabled_wrap_around);
 				int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
 				if (m_top < maxRows - m_max_rows) {
-					m_scroll_direction = moveUp; // All rows slide up
+					m_scroll_direction = moveUp; // Rows slide up
 					m_scroll_current_offset = 0;
 					m_scroll_target_offset = m_itemheight + m_spacing.y(); // Positive for upward slide
 					m_animating_scroll = true;
 					m_scroll_timer->start(16, true);
 					m_top++; // Shift all rows down
+					eDebug("[eListbox] moveDown: sliding up, m_top=%d, scroll_direction=%d, target_offset=%d", m_top, m_scroll_direction, m_scroll_target_offset);
 					invalidate();
-				} else if (m_enabled_wrap_around) {
+				} else if (m_enabled_wrap_around && maxRows > m_max_rows) {
 					m_top = 0;
 					m_scroll_direction = moveUp;
 					m_scroll_current_offset = 0;
 					m_scroll_target_offset = m_itemheight + m_spacing.y();
 					m_animating_scroll = true;
 					m_scroll_timer->start(16, true);
+					eDebug("[eListbox] moveDown: wrapped, m_top=%d, scroll_direction=%d, target_offset=%d", m_top, m_scroll_direction, m_scroll_target_offset);
 					invalidate();
+				} else {
+					eDebug("[eListbox] moveDown: no action, at bottom");
 				}
 				break;
 			}
-			eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, size=%d, wrap=%d", oldSel, m_selected, m_content->size(), m_enabled_wrap_around);
 			if (m_selected >= m_content->size() - 1 && m_enabled_wrap_around && m_content->size() > 0) {
 				eDebug("[eListbox] moveDown: at last index, wrapping to first");
 				m_content->cursorHome();
