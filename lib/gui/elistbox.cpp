@@ -1545,14 +1545,20 @@ void eListbox::moveSelection(int dir)
 			if (isGrid) {
 				eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, maxRows, m_enabled_wrap_around);
 		
-				// Only start page transition if not already animating
-				if (!m_page_transition_active && m_top < maxRows - m_max_rows) {
+				// Prevent new animation if one is already running
+				if (m_page_transition_active) {
+					eDebug("[eListbox] moveDown: animation already active, skipping.");
+					break;
+				}
+		
+				// Start page transition if within bounds
+				if (m_top < maxRows - m_max_rows) {
 					m_page_transition_active = true;
 					m_page_transition_direction = 1; // Slide current page up
 					m_scroll_timer->start(16, true);
 					return; // Prevent m_top++ or selection change now
 				}
-				else if (!m_page_transition_active && m_enabled_wrap_around && maxRows > m_max_rows) {
+				else if (m_enabled_wrap_around && maxRows > m_max_rows) {
 					m_page_transition_active = true;
 					m_page_transition_direction = 1;
 					m_top = -m_max_rows; // temporary state for visual wrap (fixed after transition)
