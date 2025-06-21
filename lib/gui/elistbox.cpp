@@ -1287,33 +1287,38 @@ void eListbox::onScrollTimer()
 
 void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride /* = -1 */)
 {
-	ePtr<eWindowStyle> style;
-	getStyle(style);
+    ePtr<eWindowStyle> style;
+    getStyle(style);
 
-	int savedTop = m_top;
-	if (topOverride != -1)
-		m_top = topOverride;
+    int savedTop = m_top;
+    if (topOverride != -1)
+        m_top = topOverride;
 
-	int startIndex = m_top * m_max_columns;
-	int endIndex = std::min((int)m_content->size(), startIndex + m_max_columns * m_max_rows);
+    int startIndex = m_top;
+    int endIndex = std::min((int)m_content->size(), m_top + m_max_rows);
 
-	m_content->cursorSet(startIndex);
+    if (m_content->size() > 0 && startIndex >= m_content->size()) {
+        startIndex = std::max(0, (int)m_content->size() - m_max_rows);
+        m_top = startIndex; // Adjust m_top to valid range
+        eDebug("[eListbox] drawPage: adjusted m_top=%d to prevent overflow", m_top);
+    }
 
-	for (int i = startIndex; i < endIndex; ++i)
-	{
-		ePoint pos = getItemPostion(i);
-		pos.setY(pos.y() - offsetY); // Apply transition offset vertically
+    m_content->cursorSet(startIndex);
 
-		bool sel = (i == m_selected && m_selection_enabled);
+    for (int i = startIndex; i < endIndex; ++i)
+    {
+        ePoint pos = getItemPostion(i);
+        pos.setY(pos.y() - offsetY); // Apply transition offset vertically
 
-		m_content->paint(painter, *style, pos, sel);
+        bool sel = (i == m_selected && m_selection_enabled);
 
-		m_content->cursorMove(+1);
-	}
+        m_content->paint(painter, *style, pos, sel);
+        m_content->cursorMove(+1);
+    }
 
-	// Restore the original top and cursor
-	m_top = savedTop;
-	m_content->cursorSet(m_selected);
+    // Restore the original top and cursor
+    m_top = savedTop;
+    m_content->cursorSet(m_selected);
 }
 
 
