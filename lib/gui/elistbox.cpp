@@ -1566,33 +1566,20 @@ void eListbox::moveSelection(int dir)
 			}
 			[[fallthrough]];
 		case moveRight:
-			if (isGrid)
-			{
-				int row = oldSel / m_max_columns;
+			if (isGrid) {
+				int row = oldRow;
 				m_content->cursorMove(1);
 				newSel = m_content->cursorGet();
-		
-				if ((newSel / m_max_columns) != row || newSel == oldSel)
-				{
-					if (m_enabled_wrap_around)
-					{
+				if ((newSel / m_max_columns) != row || newSel == oldSel) {
+					if (m_enabled_wrap_around) {
 						m_content->cursorMove(-(m_max_columns - 1));
 						newSel = m_content->cursorGet();
-					}
-					else
-					{
+					} else {
 						m_content->cursorSet(oldSel);
 						break;
 					}
 				}
-		
 				m_selected = newSel;
-		
-				m_scroll_direction = moveRight;
-				m_scroll_current_offset = 0;
-				m_scroll_target_offset = m_itemwidth + m_spacing.x();
-				m_animating_scroll = true;
-				m_scroll_timer->start(16, true);
 				break;
 			}
 		case movePageUp:
