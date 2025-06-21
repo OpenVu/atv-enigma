@@ -337,6 +337,8 @@ public:
 	void setScrollbarBackgroundGradient(const gRGB &startcolor, const gRGB &midcolor, const gRGB &endcolor, uint8_t direction, bool alphablend);
 	void setScrollbarRadius(int radius, uint8_t edges);
 
+	void drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride = -1);
+
 	void setMaxRows(int rows)
 	{
 		m_style.m_max_rows = rows;
