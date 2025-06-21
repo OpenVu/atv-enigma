@@ -1340,8 +1340,8 @@ void eListbox::moveSelection(int dir)
 		maxItems = m_max_rows * m_max_columns;
 	}
 
-	int prevSel, newSel = m_selected, oldSel = m_selected;
-	eDebug("[eListbox] moveSelection: dir=%d, oldSel=%d, m_selected=%d, isGrid=%d", dir, oldSel, m_selected, isGrid);
+	//int prevSel, newSel = m_selected, oldSel = m_selected;
+	//eDebug("[eListbox] moveSelection: dir=%d, oldSel=%d, m_selected=%d, isGrid=%d", dir, oldSel, m_selected, orGrid);
 
 	if (!maxItems || !m_content->size())
 		return;
