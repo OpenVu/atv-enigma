@@ -1340,9 +1340,6 @@ void eListbox::moveSelection(int dir)
 		maxItems = m_max_rows * m_max_columns;
 	}
 
-	//int prevSel, newSel = m_selected, oldSel = m_selected;
-	//eDebug("[eListbox] moveSelection: dir=%d, oldSel=%d, m_selected=%d, isGrid=%d", dir, oldSel, m_selected, orGrid);
-
 	if (!maxItems || !m_content->size())
 		return;
 
@@ -1561,10 +1558,10 @@ void eListbox::moveSelection(int dir)
 				if (m_top < maxRows - m_max_rows) {
 					m_scroll_direction = moveUp; // Rows slide up
 					m_scroll_current_offset = 0;
-					m_scroll_target_offset = m_itemheight + m_spacing.y();
+					m_scroll_target_offset = m_itemheight + m_spacing.y(); // Positive for upward slide
 					m_animating_scroll = true;
 					m_scroll_timer->start(16, true);
-					m_top++;
+					m_top++; // Shift all rows down
 					eDebug("[eListbox] moveDown: sliding up, m_top=%d, scroll_direction=%d, target_offset=%d", m_top, m_scroll_direction, m_scroll_target_offset);
 					invalidate();
 				} else if (m_enabled_wrap_around && maxRows > m_max_rows) {
@@ -1581,7 +1578,6 @@ void eListbox::moveSelection(int dir)
 				}
 				break;
 			}
-			eDebug("[eListbox] moveDown: orVertical, oldSel=%d, m_selected=%d, size=%d, wrap=%d", oldSel, m_selected, m_content->size(), m_enabled_wrap_around);
 			if (m_selected >= m_content->size() - 1 && m_enabled_wrap_around && m_content->size() > 0) {
 				eDebug("[eListbox] moveDown: at last index, wrapping to first");
 				m_content->cursorHome();
@@ -1614,23 +1610,23 @@ void eListbox::moveSelection(int dir)
 			if (isGrid) {
 				int col = oldSel % m_max_columns;
 				if (col < m_max_columns - 1 && oldSel + 1 < m_content->size()) {
-					m_selected = oldSel + 1;
+					m_selected = oldSel + 1; // Move right within row
 				} else if (m_enabled_wrap_around) {
 					int row = oldSel / m_max_columns;
-					m_selected = row * m_max_columns;
-					if (m_selected >= m_content->size())
-						m_selected = m_content->size() - 1;
+					m_selected = row * m_max_columns; // Wrap to first column
+					if (m_selected >= m_content->size()) {
+						m_selected = m_content->size() - 1; // Ensure within bounds
+					}
 				}
 				if (m_selected != oldSel) {
-					m_content->cursorSet(m_selected);
+					m_content->cursorSet(m_selected); // Update content cursor
 					gRegion inv = eRect(getItemPostion(m_selected), eSize(m_style.m_selection_width, m_style.m_selection_height));
 					inv |= eRect(getItemPostion(oldSel), eSize(m_style.m_selection_width, m_style.m_selection_height));
-					invalidate(inv);
-					selectionChanged();
+					invalidate(inv); // Invalidate old and new cursor positions
+					selectionChanged(); // Notify selection change
 				}
-				break;
+				break; // Remove [[fallthrough]] to prevent executing moveDown
 			}
-			// No [[fallthrough]] here
 			do {
 				m_content->cursorMove(-1);
 				newSel = m_content->cursorGet();
@@ -1654,15 +1650,14 @@ void eListbox::moveSelection(int dir)
 			{
 				m_content->cursorMove(-pageOffset);
 				newSel = m_content->cursorGet();
-				pageind = newSel % maxItems; // rememer were we land in thsi page (could be different on topmost page)
-				prevSel = newSel - pageind;	 // get top of page index
-				// find first selectable entry in new page. First check bottom part, than upper part
+				pageind = newSel % maxItems;
+				prevSel = newSel - pageind;
 				while (newSel != prevSel + maxItems && m_content->cursorValid() && !m_content->currentCursorSelectable())
 				{
 					m_content->cursorMove(1);
 					newSel = m_content->cursorGet();
 				}
-				if (!m_content->currentCursorSelectable()) // no selectable found in bottom part of page
+				if (!m_content->currentCursorSelectable())
 				{
 					m_content->cursorSet(prevSel + pageind);
 					while (newSel != prevSel && !m_content->currentCursorSelectable())
@@ -1673,7 +1668,7 @@ void eListbox::moveSelection(int dir)
 				}
 				if (m_content->currentCursorSelectable())
 					break;
-				if (newSel == 0) // at top and nothing found . Go down till something selectable or old location
+				if (newSel == 0)
 				{
 					while (newSel != oldSel && !m_content->currentCursorSelectable())
 					{
@@ -1696,14 +1691,13 @@ void eListbox::moveSelection(int dir)
 					m_content->cursorMove(-1);
 				newSel = m_content->cursorGet();
 				pageind = newSel % maxItems;
-				prevSel = newSel - pageind; // get top of page index
-				// find a selectable entry in the new page. first look up then down from current screenlocation on the page
+				prevSel = newSel - pageind;
 				while (newSel != prevSel && !m_content->currentCursorSelectable())
 				{
 					m_content->cursorMove(-1);
 					newSel = m_content->cursorGet();
 				}
-				if (!m_content->currentCursorSelectable()) // no selectable found in top part of page
+				if (!m_content->currentCursorSelectable())
 				{
 					m_content->cursorSet(prevSel + pageind);
 					do
@@ -1714,9 +1708,6 @@ void eListbox::moveSelection(int dir)
 				}
 				if (!m_content->cursorValid())
 				{
-					// we reached the end of the list
-					// Back up till something selectable or we reach oldSel again
-					// E.g this should bring us back to the last selectable item on the original page
 					do
 					{
 						m_content->cursorMove(-1);
@@ -1726,11 +1717,13 @@ void eListbox::moveSelection(int dir)
 				}
 				if (newSel != prevSel + maxItems)
 					break;
-				m_content->cursorSet(prevSel + pageind); // prepare for next page down
+				m_content->cursorSet(prevSel + pageind);
 			} while (newSel == prevSel + maxItems);
 			break;
 		}
 		}
+		m_selected = m_content->cursorGet();
+	}
 
 	if (m_orientation == orHorizontal)
 		m_left = m_selected - (m_selected % maxItems);
