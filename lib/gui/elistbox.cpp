@@ -1240,7 +1240,8 @@ ePoint eListbox::getItemPostion(int index)
 
 void eListbox::onScrollTimer()
 {
-	if (!m_page_transition_active) {
+	if (!m_page_transition_active)
+	{
 		m_scroll_timer->stop();
 		return;
 	}
@@ -1251,24 +1252,38 @@ void eListbox::onScrollTimer()
 	int target = m_page_transition_direction * total_offset;
 	int remaining = target - m_page_transition_offset;
 	int step = static_cast<int>(remaining * ease);
+
 	if (std::abs(step) < 1)
 		step = (remaining > 0) ? 1 : -1;
 
 	m_page_transition_offset += step;
 	invalidate();
 
-	if (std::abs(target - m_page_transition_offset) < 1) {
+	if (std::abs(target - m_page_transition_offset) < 1)
+	{
+		// Animation done
 		m_page_transition_offset = 0;
 		m_page_transition_active = false;
+		m_scroll_timer->stop();
+
 		if (m_page_transition_direction == 1)
+		{
+			// ✅ Only now update m_top
 			m_top++;
+		}
 		else if (m_page_transition_direction == -1 && m_top > 0)
+		{
 			m_top--;
+		}
+
 		invalidate();
-	} else {
+	}
+	else
+	{
 		m_scroll_timer->start(16, true);
 	}
 }
+
 
 void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride /* = -1 */)
 {
