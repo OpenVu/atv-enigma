@@ -337,7 +337,12 @@ public:
 	void setScrollbarBackgroundGradient(const gRGB &startcolor, const gRGB &midcolor, const gRGB &endcolor, uint8_t direction, bool alphablend);
 	void setScrollbarRadius(int radius, uint8_t edges);
 
-	void drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride = -1);
+	bool m_page_transition_active = false;
+	int m_page_transition_offset = 0;
+	int m_page_transition_direction = 0; // 1 = down, -1 = up
+
+	void drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride);
+
 
 	void setMaxRows(int rows)
 	{
