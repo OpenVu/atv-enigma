@@ -3,6 +3,7 @@
 #include <lib/gui/eslider.h>
 #include <lib/actions/action.h>
 #include <lib/base/nconfig.h>
+#include <lib/base/eerror.h> // Add for debug output
 #ifdef USE_LIBVUGLES2
 #include "vuplus_gles.h"
 #endif
@@ -1568,30 +1569,31 @@ void eListbox::moveSelection(int dir)
 				}
 				break;
 			}
-			do {
-				m_content->cursorMove(1);
+			eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, size=%d, wrap=%d", oldSel, m_selected, m_content->size(), m_enabled_wrap_around);
+			m_content->cursorMove(1);
+			newSel = m_content->cursorGet();
+			eDebug("[eListbox] moveDown: after cursorMove(1), newSel=%d, oldSel=%d", newSel, oldSel);
+			if (newSel == oldSel && m_enabled_wrap_around && m_content->size() > 0) {
+				eDebug("[eListbox] moveDown: at last index, wrapping to first");
+				m_content->cursorHome();
 				newSel = m_content->cursorGet();
-				if (newSel == oldSel) {
-					if (m_enabled_wrap_around && m_content->size() > 0) {
-						m_content->cursorHome(); // Wrap to first index
-						newSel = m_content->cursorGet();
-						m_selected = newSel;
-						m_top = 0; // Reset view to top
-						invalidate();
-					} else {
-						m_content->cursorSet(oldSel);
-						break;
-					}
-				}
-				prevSel = newSel;
-			} while (newSel != oldSel && !m_content->currentCursorSelectable());
-			m_selected = newSel;
-			if (m_selected != oldSel) {
+				m_selected = newSel;
+				m_top = 0;
+				eDebug("[eListbox] moveDown: after cursorHome, newSel=%d, m_top=%d", newSel, m_top);
+				invalidate();
 				selectionChanged();
+			} else if (newSel != oldSel && m_content->currentCursorSelectable()) {
+				m_selected = newSel;
+				eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
 				if (m_selected >= m_top + m_max_rows) {
-					m_top = m_selected - (m_max_rows - 1); // Adjust view to keep cursor visible
+					m_top = m_selected - (m_max_rows - 1);
+					eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
 					invalidate();
 				}
+				selectionChanged();
+			} else {
+				eDebug("[eListbox] moveDown: restoring oldSel=%d", oldSel);
+				m_content->cursorSet(oldSel);
 			}
 			break;
 		case moveRight:
