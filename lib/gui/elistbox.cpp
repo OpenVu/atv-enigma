@@ -1570,10 +1570,7 @@ void eListbox::moveSelection(int dir)
 				break;
 			}
 			eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, size=%d, wrap=%d", oldSel, m_selected, m_content->size(), m_enabled_wrap_around);
-			m_content->cursorMove(1);
-			newSel = m_content->cursorGet();
-			eDebug("[eListbox] moveDown: after cursorMove(1), newSel=%d, oldSel=%d", newSel, oldSel);
-			if (newSel == oldSel && m_enabled_wrap_around && m_content->size() > 0) {
+			if (m_selected >= m_content->size() - 1 && m_enabled_wrap_around && m_content->size() > 0) {
 				eDebug("[eListbox] moveDown: at last index, wrapping to first");
 				m_content->cursorHome();
 				newSel = m_content->cursorGet();
@@ -1582,18 +1579,23 @@ void eListbox::moveSelection(int dir)
 				eDebug("[eListbox] moveDown: after cursorHome, newSel=%d, m_top=%d", newSel, m_top);
 				invalidate();
 				selectionChanged();
-			} else if (newSel != oldSel && m_content->currentCursorSelectable()) {
-				m_selected = newSel;
-				eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
-				if (m_selected >= m_top + m_max_rows) {
-					m_top = m_selected - (m_max_rows - 1);
-					eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
-					invalidate();
-				}
-				selectionChanged();
 			} else {
-				eDebug("[eListbox] moveDown: restoring oldSel=%d", oldSel);
-				m_content->cursorSet(oldSel);
+				m_content->cursorMove(1);
+				newSel = m_content->cursorGet();
+				eDebug("[eListbox] moveDown: after cursorMove(1), newSel=%d, oldSel=%d", newSel, oldSel);
+				if (newSel != oldSel && m_content->currentCursorSelectable()) {
+					m_selected = newSel;
+					eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
+					if (m_selected >= m_top + m_max_rows) {
+						m_top = m_selected - (m_max_rows - 1);
+						eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
+						invalidate();
+					}
+					selectionChanged();
+				} else {
+					eDebug("[eListbox] moveDown: restoring oldSel=%d", oldSel);
+					m_content->cursorSet(oldSel);
+				}
 			}
 			break;
 		case moveRight:
