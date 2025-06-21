@@ -546,70 +546,10 @@ int eListbox::event(int event, void *data, void *data2)
 		// --- Add support for page transition animation ---
 		if (m_page_transition_active) {
 			int total_offset = (m_itemheight + m_spacing.y()) * m_max_rows;
-			drawPage(painter, paint_region, m_page_transition_offset);
+			drawPage(painter, paint_region, m_page_transition_offset, -1);
 			drawPage(painter, paint_region, m_page_transition_offset - total_offset, m_top + m_page_transition_direction);
 		} else {
-			// Original paint logic
-			int line = 0;
-			int m_max_items = m_orientation == orGrid ? m_max_columns * m_max_rows : m_orientation == orHorizontal ? m_max_columns : m_max_rows;
-
-			for (int posx = 0, posy = 0, i = 0; (m_orientation == orVertical) ? i <= m_max_items : i < m_max_items; posx += m_itemwidth + m_spacing.x(), ++i)
-			{
-				if (m_orientation == orGrid && i > 0)
-				{
-					if (i % m_max_columns == 0)
-					{
-						posy += m_itemheight + m_spacing.y();
-						posx = 0;
-					}
-				}
-				if (m_orientation == orVertical)
-				{
-					posx = 0;
-					if (i > 0)
-						posy += m_itemheight + m_spacing.y();
-				}
-
-				bool sel = (m_selected == m_content->cursorGet() && m_content->size() && m_selection_enabled);
-
-				if (sel)
-					line = m_orientation == orGrid ? (i / m_max_columns) : i;
-
-				entryRect = eRect(posx + xOffset, posy + yOffset, m_style.m_selection_width, m_style.m_selection_height);
-				gRegion entry_clip_rect = paint_region & entryRect;
-
-				if (!entry_clip_rect.empty())
-				{
-					if (m_orientation != orVertical && m_content->cursorValid())
-					{
-						int t = m_orientation == orGrid ? (m_top * m_max_columns) : m_left;
-						if (i != (m_selected - t) || !m_selection_enabled)
-							m_content->paint(painter, *style, ePoint(posx + xOffset, posy + yOffset), 0);
-					}
-					else if (m_orientation == orVertical)
-						m_content->paint(painter, *style, ePoint(posx + xOffset, posy + yOffset), sel);
-
-#ifdef USE_LIBVUGLES2
-					if (sel && m_orientation == orVertical)
-					{
-						ePoint pos = getAbsolutePosition();
-						painter.sendShowItem(m_dir, ePoint(pos.x() + xOffset, pos.y() + posy + yOffset), eSize(m_scrollbar && m_scrollbar->isVisible() ? size().width() - m_scrollbar->size().width() : size().width(), m_itemheight));
-						gles_set_animation_listbox_current(pos.x() + xOffset, pos.y() + posy + yOffset, m_scrollbar && m_scrollbar->isVisible() ? size().width() - m_scrollbar->size().width() : size().width(), m_itemheight);
-						m_dir = justCheck;
-					}
-#endif
-				}
-				m_content->cursorMove(+1);
-			}
-
-			m_content->cursorSaveLine(line);
-			m_content->cursorRestore();
-
-			if (m_selected == m_content->cursorGet() && m_content->size() && m_selection_enabled && m_orientation != orVertical)
-			{
-				if (m_content)
-					m_content->paint(painter, *style, getItemPostion(m_selected), 1);
-			}
+			drawPage(painter, paint_region, 0, -1);
 		}
 
 		// scrollbar background handling (unchanged)
@@ -690,6 +630,7 @@ int eListbox::event(int event, void *data, void *data2)
 		return eWidget::event(event, data, data2);
 	}
 }
+
 
 void eListbox::recalcSize()
 {
