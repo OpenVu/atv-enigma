@@ -1222,38 +1222,29 @@ ePoint eListbox::getItemPostion(int index)
 	int posx = 0, posy = 0;
 	ePoint spacing = (index > 0) ? m_spacing : ePoint(0, 0);
 
-	if (m_orientation == orGrid)
-	{
-		int relIndex = index - (m_top * m_max_columns);
-		int col = relIndex % m_max_columns;
-		int row = relIndex / m_max_columns;
-
-		posx = (m_itemwidth + spacing.x()) * col;
-		posy = (m_itemheight + spacing.y()) * row;
-
-		// Apply scroll offset during grid transition
-		if (m_page_transition_active)
-		{
+	if (m_orientation == orGrid) {
+		posx = (m_itemwidth + spacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns);
+		posy = (m_itemheight + spacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns);
+		// Apply animation offset to all rows
+		if (m_animating_scroll && (m_scroll_direction == moveUp || m_scroll_direction == moveDown)) {
+			posy += m_scroll_current_offset; // Offset all rows, not just cursor
+		}
+		// Keep legacy grid scroll smooth animation
+		if (m_page_transition_active) {
 			posy += m_page_transition_offset;
 		}
-	}
-	else if (m_orientation == orHorizontal)
-	{
+	} else if (m_orientation == orHorizontal) {
 		posx = (m_itemwidth + spacing.x()) * (index - m_left) - m_scroll_current_offset;
-	}
-	else // orVertical
-	{
+	} else {
 		posy = (m_itemheight + spacing.y()) * (index - m_top);
-
-		// Apply scroll offset if animating vertically
-		if (m_animating_scroll)
-		{
+		if (m_animating_scroll) {
 			posy += m_scroll_current_offset;
 		}
 	}
 
 	return ePoint(posx + xOffset, posy + yOffset);
 }
+
 
 void eListbox::onScrollTimer()
 {
