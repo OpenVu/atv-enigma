@@ -1556,67 +1556,72 @@ void eListbox::moveSelection(int dir)
 			[[fallthrough]];
 		case moveDown:
 		{
-			int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
+		    int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
 		
-			if (isGrid) {
-				eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, maxRows, m_enabled_wrap_around);
+		    if (isGrid) {
+		        eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, maxRows, m_enabled_wrap_around);
 		
-				// Prevent new animation if one is already running
-				if (m_page_transition_active) {
-					eDebug("[eListbox] moveDown: animation already active, skipping.");
-					break;
-				}
+		        if (m_page_transition_active) {
+		            eDebug("[eListbox] moveDown: animation already active, skipping.");
+		            break;
+		        }
 		
-				// Start page transition if within bounds
-				if (m_top < maxRows - m_max_rows) {
-					m_page_transition_active = true;
-					m_page_transition_direction = 1; // Slide current page up
-					m_scroll_timer->start(16, true);
-					return; // Prevent m_top++ or selection change now
-				}
-				else if (m_enabled_wrap_around && maxRows > m_max_rows) {
-					m_page_transition_active = true;
-					m_page_transition_direction = 1;
-					m_top = -m_max_rows; // temporary state for visual wrap (fixed after transition)
-					m_scroll_timer->start(16, true);
-					return;
-				}
-				else {
-					eDebug("[eListbox] moveDown: no action, at bottom");
-				}
-			}
-			else {
-				if (m_selected >= m_content->size() - 1 && m_enabled_wrap_around && m_content->size() > 0) {
-					eDebug("[eListbox] moveDown: at last index, wrapping to first");
-					m_content->cursorHome();
-					newSel = m_content->cursorGet();
-					m_selected = newSel;
-					m_top = 0;
-					eDebug("[eListbox] moveDown: after cursorHome, newSel=%d, m_top=%d", newSel, m_top);
-					invalidate();
-					selectionChanged();
-				}
-				else {
-					m_content->cursorMove(1);
-					newSel = m_content->cursorGet();
-					eDebug("[eListbox] moveDown: after cursorMove(1), newSel=%d, oldSel=%d", newSel, oldSel);
-					if (newSel != oldSel && m_content->currentCursorSelectable()) {
-						m_selected = newSel;
-						eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
-						if (m_selected >= m_top + m_max_rows) {
-							m_top = std::min(m_selected - (m_max_rows - 1), (int)(m_content->size() - m_max_rows));
-							eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
-							invalidate();
-						}
-						selectionChanged();
-					}
-					else {
-						eDebug("[eListbox] moveDown: restoring oldSel=%d", oldSel);
-						m_content->cursorSet(oldSel);
-					}
-				}
-			}
-			break;
+		        if (m_top < maxRows - m_max_rows) {
+		            m_page_transition_active = true;
+		            m_page_transition_direction = 1;
+		            m_scroll_timer->start(16, true);
+		            return;
+		        }
+		        else if (m_enabled_wrap_around && maxRows > m_max_rows) {
+		            m_page_transition_active = true;
+		            m_page_transition_direction = 1;
+		            m_top = -m_max_rows;
+		            m_scroll_timer->start(16, true);
+		            return;
+		        }
+		        else {
+		            eDebug("[eListbox] moveDown: no action, at bottom");
+		        }
+		    }
+		    else {
+		        if (m_selected >= m_content->size() - 1) {
+		            if (m_enabled_wrap_around && m_content->size() > 0) {
+		                eDebug("[eListbox] moveDown: at last index, wrapping to first");
+		                m_content->cursorHome();
+		                newSel = m_content->cursorGet();
+		                m_selected = newSel;
+		                m_top = 0;
+		                eDebug("[eListbox] moveDown: after cursorHome, newSel=%d, m_top=%d", newSel, m_top);
+		                invalidate(); // Force full redraw
+		                selectionChanged();
+		            }
+		            else {
+		                eDebug("[eListbox] moveDown: at last index, no wraparound");
+		                m_content->cursorSet(oldSel); // Restore cursor
+		            }
+		        }
+		        else {
+		            m_content->cursorMove(1);
+		            newSel = m_content->cursorGet();
+		            eDebug("[eListbox] moveDown: after cursorMove(1), newSel=%d, oldSel=%d", newSel, oldSel);
+		            if (newSel != oldSel && m_content->currentCursorSelectable()) {
+		                m_selected = newSel;
+		                eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
+		                if (m_selected >= m_top + m_max_rows) {
+		                    m_top = std::min(m_selected - (m_max_rows - 1), (int)(m_content->size() - m_max_rows));
+		                    if (m_top < 0) m_top = 0; // Ensure m_top is non-negative
+		                    eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
+		                    invalidate(); // Force full redraw
+		                }
+		                selectionChanged();
+		            }
+		            else {
+		                eDebug("[eListbox] moveDown: restoring oldSel=%d", oldSel);
+		                m_content->cursorSet(oldSel);
+		            }
+		        }
+		    }
+		    break;
 		}
 
 		case moveRight:
