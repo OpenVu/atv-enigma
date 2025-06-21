@@ -1323,9 +1323,17 @@ void eListbox::onScrollTimer()
 		m_scroll_target_offset = 0;
 		m_animating_scroll = false;
 		m_scroll_timer->stop();
-	}
-	else {
-		m_scroll_timer->start(16, true);  // ~60fps
+	
+		// Apply page change after animation completes
+		if (m_orientation == orGrid) {
+			if (m_scroll_direction == moveUp) {
+				m_top++;
+			} else if (m_scroll_direction == moveDown && m_top > 0) {
+				m_top--;
+			}
+		}
+	
+		invalidate();
 	}
 }
 
@@ -1556,14 +1564,14 @@ void eListbox::moveSelection(int dir)
 				eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, (m_content->size() + m_max_columns - 1) / m_max_columns, m_enabled_wrap_around);
 				int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
 				if (m_top < maxRows - m_max_rows) {
-					m_scroll_direction = moveUp; // Rows slide up
+					m_scroll_direction = moveUp;
 					m_scroll_current_offset = 0;
-					m_scroll_target_offset = m_itemheight + m_spacing.y(); // Positive for upward slide
+					m_scroll_target_offset = (m_itemheight + m_spacing.y()) * m_max_rows;  // Slide whole page
 					m_animating_scroll = true;
 					m_scroll_timer->start(16, true);
-					m_top++; // Shift all rows down
-					eDebug("[eListbox] moveDown: sliding up, m_top=%d, scroll_direction=%d, target_offset=%d", m_top, m_scroll_direction, m_scroll_target_offset);
+					// Delay m_top++ until animation completes!
 					invalidate();
+				}
 				} else if (m_enabled_wrap_around && maxRows > m_max_rows) {
 					m_top = 0;
 					m_scroll_direction = moveUp;
