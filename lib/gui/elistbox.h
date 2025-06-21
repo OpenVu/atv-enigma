@@ -341,7 +341,9 @@ public:
 	int m_page_transition_offset = 0;
 	int m_page_transition_direction = 0; // 1 = down, -1 = up
 
+	//void drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride);
 	void drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride);
+
 
 
 	void setMaxRows(int rows)
