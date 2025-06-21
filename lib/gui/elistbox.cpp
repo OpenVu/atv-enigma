@@ -1625,9 +1625,24 @@ void eListbox::moveSelection(int dir)
 					invalidate(inv); // Invalidate old and new cursor positions
 					selectionChanged(); // Notify selection change
 				}
-				break;
+				break; // Remove [[fallthrough]] to prevent executing moveDown
 			}
-			[[fallthrough]];
+			do {
+				m_content->cursorMove(-1);
+				newSel = m_content->cursorGet();
+				if (newSel == prevSel) {
+					if (m_enabled_wrap_around) {
+						m_content->cursorEnd();
+						m_content->cursorMove(-1);
+						newSel = m_content->cursorGet();
+					} else {
+						m_content->cursorSet(oldSel);
+						break;
+					}
+				}
+				prevSel = newSel;
+			} while (newSel != oldSel && !m_content->currentCursorSelectable());
+			break;
 		case movePageUp:
 		{
 			int pageind;
