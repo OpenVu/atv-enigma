@@ -509,7 +509,8 @@ protected:
 	void recalcSize();
 
 private:
-	eTimer *m_scroll_timer = nullptr;
+	//eTimer *m_scroll_timer = nullptr;
+	ePtr<eTimer> m_scroll_timer;
 	int m_scroll_current_offset = 0;
 	int m_scroll_target_offset = 0;
 	int m_scroll_direction = 0;
