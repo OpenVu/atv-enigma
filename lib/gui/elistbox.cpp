@@ -1241,48 +1241,62 @@ ePoint eListbox::getItemPostion(int index)
 
 void eListbox::onScrollTimer()
 {
-	if (!m_page_transition_active)
-	{
-		m_scroll_timer->stop();
-		return;
-	}
+    if (!m_page_transition_active)
+    {
+        m_scroll_timer->stop();
+        return;
+    }
 
-	const int total_offset = (m_itemheight + m_spacing.y()) * m_max_rows;
-	const float ease = 0.25f;
+    const int total_offset = (m_itemheight + m_spacing.y()) * m_max_rows;
+    const float ease = 0.25f;
 
-	int target = m_page_transition_direction * total_offset;
-	int remaining = target - m_page_transition_offset;
-	int step = static_cast<int>(remaining * ease);
+    int target = m_page_transition_direction * total_offset;
+    int remaining = target - m_page_transition_offset;
+    int step = static_cast<int>(remaining * ease);
 
-	if (std::abs(step) < 1)
-		step = (remaining > 0) ? 1 : -1;
+    if (std::abs(step) < 1)
+        step = (remaining > 0) ? 1 : -1;
 
-	m_page_transition_offset += step;
-	invalidate();
+    m_page_transition_offset += step;
+    invalidate();
 
-	if (std::abs(target - m_page_transition_offset) < 1)
-	{
-		// Animation done
-		m_page_transition_offset = 0;
-		m_page_transition_active = false;
-		m_scroll_timer->stop();
+    if (std::abs(target - m_page_transition_offset) < 1)
+    {
+        // Animation done
+        m_page_transition_offset = 0;
+        m_page_transition_active = false;
+        m_scroll_timer->stop();
 
-		if (m_page_transition_direction == 1)
-		{
-			// ✅ Only now update m_top
-			m_top++;
-		}
-		else if (m_page_transition_direction == -1 && m_top > 0)
-		{
-			m_top--;
-		}
+        if (m_page_transition_direction == 1)
+        {
+            // Update m_top only after animation completes
+            if (m_top < 0) // Handle wraparound case
+            {
+                int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
+                m_top = maxRows - m_max_rows;
+                if (m_top < 0) m_top = 0; // Ensure non-negative
+            }
+            else
+            {
+                m_top++; // Move to next page
+            }
+            eDebug("[eListbox] onScrollTimer: animation complete, m_top=%d", m_top);
+        }
+        else if (m_page_transition_direction == -1 && m_top > 0)
+        {
+            m_top--; // Move to previous page
+            eDebug("[eListbox] onScrollTimer: animation complete, m_top=%d", m_top);
+        }
 
-		invalidate();
-	}
-	else
-	{
-		m_scroll_timer->start(16, true);
-	}
+        // Force redraw of content with updated m_top
+        m_content_changed = true;
+        updateScrollBar();
+        invalidate();
+    }
+    else
+    {
+        m_scroll_timer->start(16, true);
+    }
 }
 
 void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offsetY, int topOverride /* = -1 */)
@@ -1571,25 +1585,25 @@ void eListbox::moveSelection(int dir)
 		case moveDown:
 		{
 		    int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
-		
+
 		    if (isGrid) {
 		        eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, maxRows, m_enabled_wrap_around);
 		
 		        if (m_page_transition_active) {
-		            eDebug("[eListbox] moveDown: animation already active, skipping.");
-		            break;
+		            eDebug("[eListbox] moveDown: animation already active, queuing or skipping.");
+		            return; // Skip new animation if one is active
 		        }
 		
 		        if (m_top < maxRows - m_max_rows) {
 		            m_page_transition_active = true;
-		            m_page_transition_direction = 1;
+		            m_page_transition_direction = 1; // Slide current page up
 		            m_scroll_timer->start(16, true);
 		            return;
 		        }
 		        else if (m_enabled_wrap_around && maxRows > m_max_rows) {
 		            m_page_transition_active = true;
 		            m_page_transition_direction = 1;
-		            m_top = -m_max_rows;
+		            m_top = -m_max_rows; // Temporary state for visual wrap
 		            m_scroll_timer->start(16, true);
 		            return;
 		        }
