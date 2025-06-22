@@ -1332,7 +1332,9 @@ void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offs
     for (int i = startIndex; i < endIndex; ++i)
     {
         ePoint pos = getItemPostion(i);
-        pos.setY(pos.y() - offsetY); // Apply transition offset vertically
+        if (i != m_selected || !m_page_transition_active) {
+            pos.setY(pos.y() - offsetY); // Apply transition offset only to non-selected items or when no animation
+        }
 
         bool sel = (i == m_selected && m_selection_enabled);
 
