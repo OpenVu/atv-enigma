@@ -1233,7 +1233,6 @@ ePoint eListbox::getItemPostion(int index)
 
     return ePoint(posx + xOffset, posy + yOffset);
 }
-
 void eListbox::onScrollTimer()
 {
     if (!m_page_transition_active)
@@ -1328,10 +1327,12 @@ void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offs
     {
         ePoint pos = getItemPostion(i);
         if (m_orientation == orGrid && i == m_selected && m_page_transition_active) {
-            // Draw selected item at fixed position relative to current m_top
-            // No offset applied to keep cursor visually fixed
+            // Skip offsetY for selected item to keep cursor fixed
+            // Position is already correct from getItemPostion relative to m_top
+            eDebug("[eListbox] drawPage: drawing selected item %d at fixed pos (%d, %d)", i, pos.x(), pos.y());
         } else {
-            pos.setY(pos.y() - offsetY); // Apply transition offset to non-selected items
+            pos.setY(pos.y() - offsetY); // Apply animation offset to non-selected items
+            eDebug("[eListbox] drawPage: drawing item %d at offset pos (%d, %d)", i, pos.x(), pos.y() - offsetY);
         }
 
         bool sel = (i == m_selected && m_selection_enabled);
