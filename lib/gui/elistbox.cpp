@@ -1332,9 +1332,10 @@ void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offs
     {
         ePoint pos = getItemPostion(i);
         if (m_orientation == orGrid && i == m_selected && m_page_transition_active) {
-            // Recalculate position without animation offset for selected item
-            int row = (i - (m_top * m_max_columns)) / m_max_columns;
-            int col = (i - (m_top * m_max_columns)) % m_max_columns;
+            // Use position without animation offset for selected item
+            int relativeIndex = i - (m_top * m_max_columns);
+            int row = relativeIndex / m_max_columns;
+            int col = relativeIndex % m_max_columns;
             pos = ePoint((m_itemwidth + m_spacing.x()) * col + xOffset, 
                          (m_itemheight + m_spacing.y()) * row + yOffset);
         } else {
