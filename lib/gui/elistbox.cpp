@@ -1219,23 +1219,22 @@ void eListbox::setSelectionZoomSize(int width, int height, int zoomContentMode)
 
 ePoint eListbox::getItemPostion(int index)
 {
-	int posx = 0, posy = 0;
-	ePoint spacing = (index > 0) ? m_spacing : ePoint(0, 0);
+    int posx = 0, posy = 0;
+    ePoint spacing = (index > 0) ? m_spacing : ePoint(0, 0);
 
-	if (m_orientation == orGrid) {
-		posx = (m_itemwidth + spacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns);
-		posy = (m_itemheight + spacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns);
-		// Apply animation offset to all rows
-		if (m_animating_scroll && (m_scroll_direction == moveUp || m_scroll_direction == moveDown)) {
-			posy += m_scroll_current_offset; // Offset all rows, not just cursor
-		}
-	} else if (m_orientation == orHorizontal) {
-		posx = (m_itemwidth + spacing.x()) * (index - m_left) - m_scroll_current_offset;
-	} else {
-		posy = (m_itemheight + spacing.y()) * (index - m_top);
-	}
+    if (m_orientation == orGrid) {
+        posx = (m_itemwidth + spacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns);
+        posy = (m_itemheight + spacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns);
+        if (m_animating_scroll && (m_scroll_direction == moveUp || m_scroll_direction == moveDown)) {
+            posy += m_scroll_current_offset; // Offset all rows
+        }
+    } else if (m_orientation == orHorizontal) {
+        posx = (m_itemwidth + spacing.x()) * (index - m_left) - m_scroll_current_offset;
+    } else {
+        posy = (m_itemheight + spacing.y()) * (index - m_top);
+    }
 
-	return ePoint(posx + xOffset, posy + yOffset);
+    return ePoint(posx + xOffset, posy + yOffset);
 }
 
 
@@ -1332,8 +1331,14 @@ void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offs
     for (int i = startIndex; i < endIndex; ++i)
     {
         ePoint pos = getItemPostion(i);
-        if (i != m_selected || !m_page_transition_active) {
-            pos.setY(pos.y() - offsetY); // Apply transition offset only to non-selected items or when no animation
+        if (m_orientation == orGrid && i == m_selected && m_page_transition_active) {
+            // Recalculate position without animation offset for selected item
+            int row = (i - (m_top * m_max_columns)) / m_max_columns;
+            int col = (i - (m_top * m_max_columns)) % m_max_columns;
+            pos = ePoint((m_itemwidth + m_spacing.x()) * col + xOffset, 
+                         (m_itemheight + m_spacing.y()) * row + yOffset);
+        } else {
+            pos.setY(pos.y() - offsetY); // Apply transition offset to non-selected items
         }
 
         bool sel = (i == m_selected && m_selection_enabled);
