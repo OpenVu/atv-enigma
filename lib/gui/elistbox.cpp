@@ -1225,18 +1225,14 @@ ePoint eListbox::getItemPostion(int index)
     if (m_orientation == orGrid) {
         posx = (m_itemwidth + spacing.x()) * ((index - (m_top * m_max_columns)) % m_max_columns);
         posy = (m_itemheight + spacing.y()) * ((index - (m_top * m_max_columns)) / m_max_columns);
-        if (m_animating_scroll && (m_scroll_direction == moveUp || m_scroll_direction == moveDown)) {
-            posy += m_scroll_current_offset; // Offset all rows
-        }
     } else if (m_orientation == orHorizontal) {
-        posx = (m_itemwidth + spacing.x()) * (index - m_left) - m_scroll_current_offset;
+        posx = (m_itemwidth + spacing.x()) * (index - m_left);
     } else {
         posy = (m_itemheight + spacing.y()) * (index - m_top);
     }
 
     return ePoint(posx + xOffset, posy + yOffset);
 }
-
 
 void eListbox::onScrollTimer()
 {
@@ -1287,7 +1283,7 @@ void eListbox::onScrollTimer()
             eDebug("[eListbox] onScrollTimer: animation complete, m_top=%d", m_top);
         }
 
-        // Force redraw of content with updated m_top
+        // Keep m_selected unchanged to maintain cursor position
         m_content_changed = true;
         updateScrollBar();
         invalidate();
@@ -1332,12 +1328,8 @@ void eListbox::drawPage(gPainter &painter, const gRegion &paint_region, int offs
     {
         ePoint pos = getItemPostion(i);
         if (m_orientation == orGrid && i == m_selected && m_page_transition_active) {
-            // Use position without animation offset for selected item
-            int relativeIndex = i - (m_top * m_max_columns);
-            int row = relativeIndex / m_max_columns;
-            int col = relativeIndex % m_max_columns;
-            pos = ePoint((m_itemwidth + m_spacing.x()) * col + xOffset, 
-                         (m_itemheight + m_spacing.y()) * row + yOffset);
+            // Draw selected item at fixed position relative to current m_top
+            // No offset applied to keep cursor visually fixed
         } else {
             pos.setY(pos.y() - offsetY); // Apply transition offset to non-selected items
         }
@@ -1593,27 +1585,27 @@ void eListbox::moveSelection(int dir)
 		case moveDown:
 		{
 		    int maxRows = (m_content->size() + m_max_columns - 1) / m_max_columns;
-
+		
 		    if (isGrid) {
 		        eDebug("[eListbox] moveDown: oldSel=%d, m_selected=%d, m_top=%d, maxRows=%d, wrap=%d", oldSel, m_selected, m_top, maxRows, m_enabled_wrap_around);
 		
 		        if (m_page_transition_active) {
-		            eDebug("[eListbox] moveDown: animation already active, queuing or skipping.");
-		            return; // Skip new animation if one is active
+		            eDebug("[eListbox] moveDown: animation already active, skipping.");
+		            return; // Skip new animation to prevent cursor movement
 		        }
 		
 		        if (m_top < maxRows - m_max_rows) {
 		            m_page_transition_active = true;
 		            m_page_transition_direction = 1; // Slide current page up
 		            m_scroll_timer->start(16, true);
-		            return;
+		            return; // Don't change m_selected
 		        }
 		        else if (m_enabled_wrap_around && maxRows > m_max_rows) {
 		            m_page_transition_active = true;
 		            m_page_transition_direction = 1;
 		            m_top = -m_max_rows; // Temporary state for visual wrap
 		            m_scroll_timer->start(16, true);
-		            return;
+		            return; // Don't change m_selected
 		        }
 		        else {
 		            eDebug("[eListbox] moveDown: no action, at bottom");
@@ -1645,7 +1637,7 @@ void eListbox::moveSelection(int dir)
 		                eDebug("[eListbox] moveDown: moved to newSel=%d", newSel);
 		                if (m_selected >= m_top + m_max_rows) {
 		                    m_top = std::min(m_selected - (m_max_rows - 1), (int)(m_content->size() - m_max_rows));
-		                    if (m_top < 0) m_top = 0; // Ensure m_top is non-negative
+		                    if (m_top < 0) m_top = 0; // Ensure non-negative
 		                    eDebug("[eListbox] moveDown: adjusted m_top=%d", m_top);
 		                    invalidate(); // Force full redraw
 		                }
